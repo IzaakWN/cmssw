@@ -17,6 +17,7 @@
 #include "DataFormats/ParticleFlowCandidate/interface/PFCandidate.h"
 #include "DataFormats/PatCandidates/interface/PackedCandidate.h"
 #include "CommonTools/PileupAlgos/interface/PuppiContainer.h"
+#include "CommonTools/PileupAlgos/interface/PuppiAlgo.h"
 
 // ------------------------------------------------------------------------------------------
 class PuppiProducer : public edm::stream::EDProducer<> {
@@ -41,14 +42,31 @@ private:
 
   edm::EDGetTokenT<CandidateView> tokenPFCandidates_;
   edm::EDGetTokenT<VertexCollection> tokenVertices_;
+  edm::EDGetTokenT<PuppiContainer> tokenPuppiContainer_;
+  edm::EDGetTokenT<PFOutputCollection> tokenPuppiCandidates_;
+  edm::EDGetTokenT<PackedOutputCollection> tokenPackedPuppiCandidates_;
+  edm::EDPutTokenT<edm::ValueMap<float>> ptokenPupOut_;
+  edm::EDPutTokenT<edm::ValueMap<LorentzVector>> ptokenP4PupOut_;
+  edm::EDPutTokenT<edm::ValueMap<reco::CandidatePtr>> ptokenValues_;
+  edm::EDPutTokenT<pat::PackedCandidateCollection> ptokenPackedPuppiCandidates_;
+  edm::EDPutTokenT<reco::PFCandidateCollection> ptokenPuppiCandidates_;
+  edm::EDPutTokenT<double> ptokenNalgos_;
+  edm::EDPutTokenT<std::vector<double>> ptokenRawAlphas_;
+  edm::EDPutTokenT<std::vector<double>> ptokenAlphas_;
+  edm::EDPutTokenT<std::vector<double>> ptokenAlphasMed_;
+  edm::EDPutTokenT<std::vector<double>> ptokenAlphasRms_;
   std::string fPuppiName;
   std::string fPFName;
   std::string fPVName;
   bool fPuppiDiagnostics;
   bool fPuppiForLeptons;
+  bool fUseFromPVLooseTight;
   bool fUseDZ;
   float fDZCut;
-  float fPtMax;
+  double fPtMaxCharged;
+  double fEtaMaxCharged;
+  double fPtMaxPhotons;
+  double fEtaMaxPhotons;
   bool fUseExistingWeights;
   bool fUseWeightsNoLep;
   bool fClonePackedCands;
@@ -56,7 +74,5 @@ private:
   double fVtxZCut;
   std::unique_ptr<PuppiContainer> fPuppiContainer;
   std::vector<RecoObj> fRecoObjCollection;
-  std::unique_ptr<PFOutputCollection> fPuppiCandidates;
-  std::unique_ptr<PackedOutputCollection> fPackedPuppiCandidates;
 };
 #endif

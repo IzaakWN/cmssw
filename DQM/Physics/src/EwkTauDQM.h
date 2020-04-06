@@ -15,7 +15,7 @@
  *          Christian Veelken
  */
 
-#include "DQMServices/Core/interface/DQMEDAnalyzer.h"
+#include "DQMServices/Core/interface/DQMOneEDAnalyzer.h"
 #include "DQMServices/Core/interface/DQMStore.h"
 
 #include <string>
@@ -24,14 +24,14 @@
 class EwkElecTauHistManager;
 class EwkMuTauHistManager;
 
-class EwkTauDQM : public DQMEDAnalyzer {
+class EwkTauDQM : public DQMOneEDAnalyzer<> {
 public:
   EwkTauDQM(const edm::ParameterSet&);
   ~EwkTauDQM() override;
 
   void bookHistograms(DQMStore::IBooker&, edm::Run const&, edm::EventSetup const&) override;
   void analyze(const edm::Event&, const edm::EventSetup&) override;
-  void endRun(const edm::Run&, const edm::EventSetup&) override;
+  void dqmEndRun(const edm::Run&, const edm::EventSetup&) override;
 
 private:
   std::string dqmDirectory_;

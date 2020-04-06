@@ -35,8 +35,8 @@
 #include "Geometry/CommonTopologies/interface/PixelTopology.h"
 #include "Geometry/Records/interface/TrackerTopologyRcd.h"
 #include "Geometry/Records/interface/TrackerDigiGeometryRecord.h"
-#include "Geometry/TrackerGeometryBuilder/interface/PixelGeomDetType.h"
-#include "Geometry/TrackerGeometryBuilder/interface/PixelGeomDetUnit.h"
+#include "Geometry/CommonDetUnit/interface/PixelGeomDetType.h"
+#include "Geometry/CommonDetUnit/interface/PixelGeomDetUnit.h"
 #include "Geometry/TrackerGeometryBuilder/interface/TrackerGeometry.h"
 #include "Geometry/TrackerNumberingBuilder/interface/GeometricDet.h"
 
@@ -50,8 +50,6 @@ SiPixelRecHitsValid::SiPixelRecHitsValid(const edm::ParameterSet& ps)
       siPixelRecHitCollectionToken_(consumes<SiPixelRecHitCollection>(ps.getParameter<edm::InputTag>("src"))) {}
 
 SiPixelRecHitsValid::~SiPixelRecHitsValid() {}
-
-void SiPixelRecHitsValid::beginJob() {}
 
 void SiPixelRecHitsValid::bookHistograms(DQMStore::IBooker& ibooker, const edm::Run& run, const edm::EventSetup& es) {
   ibooker.setCurrentFolder("TrackerRecHitsV/TrackerRecHits/Pixel/clustBPIX");

@@ -18,6 +18,12 @@
 <bin   file="testConditionDatabase_2.cpp" name="testConditionDatabase_2">
 </bin>
 
+<bin   file="testConditionDatabase_3.cpp" name="testConditionDatabase_3">
+</bin>
+
+<bin   file="testConditionDatabase_4.cpp" name="testConditionDatabase_4">
+</bin>
+
 <bin   file="testRootStreaming.cpp" name="testRootStreaming">
 </bin>
 
@@ -31,9 +37,9 @@
 </bin>
 <bin   file="testGroupSelection.cpp" name="testGroupSelection">
 </bin>
-<architecture name="slc.*_amd64_.*">
-<bin   file="testConnectionPool.cpp" name="testConnectionPool">
-  <use   name="CondFormats/RunInfo"/>
-</bin>
+<architecture name="(slc|cc).*_amd64_.*">
+  <bin   file="testConnectionPool.cpp" name="testConnectionPool">
+    <use   name="CondFormats/RunInfo"/>
+  </bin>
   <test name="condTestRegression" command="condTestRegression.py"/>
 </architecture>

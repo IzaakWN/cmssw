@@ -6,6 +6,7 @@
 <use   name="DataFormats/HcalDetId"/>
 <use   name="DataFormats/ForwardDetId"/>
 <use   name="DataFormats/Math"/>
+<use   name="CondFormats/GeometryObjects"/>
 <use   name="CondFormats/HcalObjects"/>
 <use   name="CondFormats/DataRecord"/>
 <use   name="SimDataFormats/SimHitMaker"/>
@@ -14,7 +15,6 @@
 <use   name="Geometry/HcalCommonData"/>
 <use   name="Geometry/EcalCommonData"/>
 <use   name="Geometry/HGCalCommonData"/>
-<use   name="DetectorDescription/Core"/>
 <use   name="FWCore/ParameterSet"/>
 <use   name="FWCore/MessageLogger"/>
 <use   name="FWCore/ServiceRegistry"/>

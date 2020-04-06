@@ -93,7 +93,7 @@ private:
   edm::EDGetTokenT<edm::LHCTransportLinkContainer> m_LHCtr;
 
   bool m_nonBeam;
-  std::unique_ptr<CustomUIsession> m_UIsession;
+  CustomUIsession* m_UIsession;
   std::unique_ptr<PhysicsList> m_physicsList;
   PrimaryTransformer* m_primaryTransformer;
 
@@ -114,6 +114,7 @@ private:
   std::string m_PhysicsTablesDir;
   bool m_StorePhysicsTables;
   bool m_RestorePhysicsTables;
+  bool m_UseParametrisedEMPhysics;
   int m_EvtMgrVerbosity;
   bool m_check;
   edm::ParameterSet m_pField;

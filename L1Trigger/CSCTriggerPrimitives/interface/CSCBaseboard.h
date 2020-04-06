@@ -7,8 +7,10 @@
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "Geometry/CSCGeometry/interface/CSCGeometry.h"
 #include "L1Trigger/CSCCommonTrigger/interface/CSCConstants.h"
+#include "L1Trigger/CSCTriggerPrimitives/interface/CSCPatternBank.h"
 #include "L1Trigger/CSCTriggerPrimitives/interface/CSCUpgradeMotherboardLUT.h"
 #include "L1Trigger/CSCTriggerPrimitives/interface/CSCUpgradeMotherboardLUTGenerator.h"
+#include "CondFormats/CSCObjects/interface/CSCDBL1TPParameters.h"
 
 class CSCBaseboard {
 public:
@@ -31,6 +33,11 @@ public:
   std::string getCSCName() const { return theCSCName_; }
 
 protected:
+  void checkConfigParameters(unsigned int& var,
+                             const unsigned int var_max,
+                             const unsigned int var_def,
+                             const std::string& var_str);
+
   /** Chamber id (trigger-type labels). */
   const unsigned theEndcap;
   const unsigned theStation;

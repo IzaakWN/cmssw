@@ -9,7 +9,7 @@ namespace HcalConst {
   constexpr int maxPSshapeBin = 256;
   constexpr int nsPerBX = 25;
   constexpr float iniTimeShift = 92.5f;
-  constexpr double invertnsPerBx = 0.04;
+  constexpr float invertnsPerBx = 0.04f;
   constexpr int shiftTS = 4;
 
 }  // namespace HcalConst
@@ -28,7 +28,7 @@ namespace FitterFuncs {
                       unsigned int nSamplesToFit);
     ~PulseShapeFunctor();
 
-    void EvalPulse(const double *pars);
+    void EvalPulse(const float *pars);
     double EvalPulseM2(const double *pars, const unsigned nPar);
 
     void setDefaultcntNANinfit() { cntNANinfit = 0; }
@@ -59,10 +59,10 @@ namespace FitterFuncs {
     void setinvertpedSig2(double x) { invertpedSig2_ = x; }
     void setinverttimeSig2(double x) { inverttimeSig2_ = x; }
 
-    void singlePulseShapeFuncMahi(const double *x);
-    double singlePulseShapeFunc(const double *x);
-    double doublePulseShapeFunc(const double *x);
-    double triplePulseShapeFunc(const double *x);
+    inline void singlePulseShapeFuncMahi(const float *x) { return EvalPulse(x); }
+    inline double singlePulseShapeFunc(const double *x) { return EvalPulseM2(x, 3); }
+    inline double doublePulseShapeFunc(const double *x) { return EvalPulseM2(x, 5); }
+    inline double triplePulseShapeFunc(const double *x) { return EvalPulseM2(x, 7); }
 
     void getPulseShape(std::array<double, HcalConst::maxSamples> &fillPulseShape) { fillPulseShape = pulse_shape_; }
 
@@ -77,7 +77,8 @@ namespace FitterFuncs {
     void funcShape(std::array<double, HcalConst::maxSamples> &ntmpbin,
                    const double pulseTime,
                    const double pulseHeight,
-                   const double slew);
+                   const double slew,
+                   bool scalePulse);
     double psFit_x[HcalConst::maxSamples], psFit_y[HcalConst::maxSamples], psFit_erry[HcalConst::maxSamples],
         psFit_erry2[HcalConst::maxSamples], psFit_slew[HcalConst::maxSamples];
 

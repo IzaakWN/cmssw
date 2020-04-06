@@ -77,8 +77,6 @@
 #include "Geometry/CaloTopology/interface/CaloTopology.h"
 #include "Geometry/CaloEventSetup/interface/CaloTopologyRecord.h"
 
-#include "RecoEgamma/EgammaPhotonAlgos/interface/ConversionHitChecker.h"
-
 //
 //
 #include "TFile.h"
@@ -1234,7 +1232,7 @@ void TkConvValidator::dqmBeginRun(edm::Run const& r, edm::EventSetup const& theE
   thePhotonMCTruthFinder_ = new PhotonMCTruthFinder();
 }
 
-void TkConvValidator::endRun(edm::Run const& r, edm::EventSetup const& theEventSetup) {
+void TkConvValidator::dqmEndRun(edm::Run const& r, edm::EventSetup const& theEventSetup) {
   delete thePhotonMCTruthFinder_;
 }
 
@@ -1354,8 +1352,6 @@ void TkConvValidator::analyze(const edm::Event& e, const edm::EventSetup& esup) 
   //edm::Handle<reco::GenJetCollection> GenJetsHandle;
   //e.getByToken(genjets_Token_, GenJetsHandle);
   //const reco::GenJetCollection &genJetCollection = *(GenJetsHandle.product());
-
-  ConversionHitChecker hitChecker;
 
   // ################  SIM to RECO ######################### //
   std::map<const reco::Track*, TrackingParticleRef> myAss;
@@ -1645,12 +1641,11 @@ void TkConvValidator::analyze(const edm::Event& e, const edm::EventSetup& esup) 
     const reco::Track refTk1 = aConv.conversionVertex().refittedTracks().front();
     const reco::Track refTk2 = aConv.conversionVertex().refittedTracks().back();
 
-    //TODO replace it with phi at vertex
-    float dPhiTracksAtVtx = aConv.dPhiTracksAtVtx();
+    float dPhiTracksAtVtx;
     // override with the phi calculated at the vertex
     math::XYZVector p1AtVtx = recalculateMomentumAtFittedVertex((*theMF_), *trackerGeom, tk1, aConv.conversionVertex());
     math::XYZVector p2AtVtx = recalculateMomentumAtFittedVertex((*theMF_), *trackerGeom, tk2, aConv.conversionVertex());
-    if (sqrt(p1AtVtx.perp2()) > sqrt(p2AtVtx.perp2()))
+    if (p1AtVtx.perp2() > p2AtVtx.perp2())
       dPhiTracksAtVtx = p1AtVtx.phi() - p2AtVtx.phi();
     else
       dPhiTracksAtVtx = p2AtVtx.phi() - p1AtVtx.phi();

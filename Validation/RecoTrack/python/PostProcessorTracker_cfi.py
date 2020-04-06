@@ -174,9 +174,11 @@ postProcessorTrack = DQMEDHarvester("DQMGenericClient",
                              "cotThetares_vs_pt '#sigma(cot(#theta)) vs p_{T}' cotThetares_vs_pt",
                              "h_dxypulleta 'd_{xy} Pull vs #eta' dxypull_vs_eta",
                              "dxyres_vs_eta '#sigma(d_{xy}) vs #eta' dxyres_vs_eta",
+                             "dxyres_vs_phi '#sigma(d_{xy}) vs #phi' dxyres_vs_phi",
                              "dxyres_vs_pt '#sigma(d_{xy}) vs p_{T}' dxyres_vs_pt",
                              "h_dzpulleta 'd_{z} Pull vs #eta' dzpull_vs_eta",
                              "dzres_vs_eta '#sigma(d_{z}) vs #eta' dzres_vs_eta",
+                             "dzres_vs_phi '#sigma(d_{z}) vs #phi' dzres_vs_phi",
                              "dzres_vs_pt '#sigma(d_{z}) vs p_{T}' dzres_vs_pt",
                              "etares_vs_eta '#sigma(#eta) vs #eta' etares_vs_eta",
                              "h_phipulleta '#phi Pull vs #eta' phipull_vs_eta",
@@ -285,6 +287,7 @@ postProcessorTrackNrecVsNsim2D = DQMEDHarvester("DQMGenericClient",
 )
 _addNoFlow(postProcessorTrackNrecVsNsim2D)
 
+
 postProcessorTrackSummary = DQMEDHarvester("DQMGenericClient",
     subDirs = cms.untracked.vstring("Tracking/Track", "Tracking/TrackTPPtLess09", "Tracking/TrackFromPV", "Tracking/TrackFromPVAllTP", "Tracking/TrackAllTPEffic", "Tracking/TrackBuilding", "Tracking/TrackConversion", "Tracking/TrackGsf", "Tracking/TrackBHadron"),
     efficiency = cms.vstring(
@@ -304,6 +307,15 @@ postProcessorTrackSequence = cms.Sequence(
     postProcessorTrackNrecVsNsim+
     postProcessorTrackSummary
 )
+
+postProcessorTrackPhase2 = postProcessorTrack.clone()
+postProcessorTrackPhase2.subDirs.extend(["Tracking/TrackTPEtaGreater2p7/*"])
+postProcessorTrackSummaryPhase2 = postProcessorTrackSummary.clone()
+postProcessorTrackSummaryPhase2.subDirs.extend(["Tracking/TrackTPEtaGreater2p7/*"])
+
+from Configuration.Eras.Modifier_phase2_tracker_cff import phase2_tracker
+phase2_tracker.toReplaceWith(postProcessorTrack,postProcessorTrackPhase2)
+phase2_tracker.toReplaceWith(postProcessorTrackSummary,postProcessorTrackSummaryPhase2)
 
 postProcessorTrackTrackingOnly = postProcessorTrack.clone()
 postProcessorTrackTrackingOnly.subDirs.extend(["Tracking/TrackSeeding/*", "Tracking/PixelTrack/*"])

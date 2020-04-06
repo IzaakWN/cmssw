@@ -35,24 +35,24 @@
 #include "DataFormats/Common/interface/DetSetVector.h"
 #include "DataFormats/SiStripDigi/interface/SiStripRawDigi.h"
 
-#include <DQMServices/Core/interface/DQMEDAnalyzer.h>
+#include <DQMServices/Core/interface/DQMOneEDAnalyzer.h>
 
-#include "boost/cstdint.hpp"
 #include "DQMServices/Core/interface/DQMStore.h"
 #include <iostream>
 #include <string>
 #include <vector>
+#include <cstdint>
 
 class SiStripDetCabling;
 
-class SiStripMonitorRawData : public DQMEDAnalyzer {
+class SiStripMonitorRawData : public DQMOneEDAnalyzer<> {
 public:
   explicit SiStripMonitorRawData(const edm::ParameterSet &);
   ~SiStripMonitorRawData() override;
 
   void bookHistograms(DQMStore::IBooker &, edm::Run const &, edm::EventSetup const &) override;
   void analyze(const edm::Event &, const edm::EventSetup &) override;
-  void endRun(edm::Run const &run, edm::EventSetup const &eSetup) override;
+  void dqmEndRun(edm::Run const &run, edm::EventSetup const &eSetup) override;
   void endJob() override;
 
 private:

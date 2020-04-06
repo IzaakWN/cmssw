@@ -1,20 +1,7 @@
-/**
- * Monte Carlo studies for cathode LCTs.
- *
- * Slava Valuev  May 26, 2004
- * Porting from ORCA by S. Valuev in September 2006.
- *
- *
- */
-
 #include "FWCore/Utilities/interface/Exception.h"
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
-
 #include "Geometry/CSCGeometry/interface/CSCGeometry.h"
 #include "Geometry/CSCGeometry/interface/OffsetRadialStripTopology.h"
-
-#include "L1Trigger/CSCCommonTrigger/interface/CSCConstants.h"
-#include "L1Trigger/CSCTriggerPrimitives/interface/CSCCathodeLCTProcessor.h"
 #include "L1Trigger/CSCTriggerPrimitives/plugins/CSCCathodeLCTAnalyzer.h"
 
 using namespace std;
@@ -133,22 +120,22 @@ vector<CSCCathodeLayerInfo> CSCCathodeLCTAnalyzer::lctDigis(const CSCCLCTDigi& c
     }
 
     // Loop over all the strips in a pattern.
-    int max_pattern_strips, layer, strip;
-    max_pattern_strips = CSCConstants::MAX_HALFSTRIPS_IN_PATTERN;
-    for (int i_strip = 0; i_strip < max_pattern_strips; i_strip++) {
-      layer = CSCCathodeLCTProcessor::pattern2007[clct_pattern][i_strip];
-      if (layer == i_layer) {
-        strip = clct_keystrip + key_stagger + CSCCathodeLCTProcessor::pattern2007_offset[i_strip];
+    // FIXME !!!
+    int strip;
+    for (int i_layer = 0; i_layer < CSCConstants::NUM_LAYERS; i_layer++) {
+      for (int i_strip = 0; i_strip < CSCConstants::CLCT_PATTERN_WIDTH; i_strip++) {
+        strip = clct_keystrip + key_stagger + CSCPatternBank::clct_pattern_offset_[i_strip];
         if (strip >= 0 && strip < CSCConstants::NUM_HALF_STRIPS) {
           digiId = hfstripDigis[strip];
           // halfstripDigis contains the digi numbers
           // that were carried through the different transformations
-          // to keystrip. -999 means there was no Digi.
+          // to keystrip. 0 means there was no Digi.
           if (digiId >= 0) {
             tempInfo.setId(layerId);                 // store the layer of this object
             tempInfo.addComponent(digiMap[digiId]);  // and the RecDigi
-            if (debug)
+            if (debug) {
               LogTrace("lctDigis") << " Digi on CLCT: strip/comp/time " << digiMap[digiId];
+            }
           }
         }
       }

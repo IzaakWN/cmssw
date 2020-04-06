@@ -8,8 +8,9 @@
 #include "DataFormats/SiStripDigi/interface/SiStripDigi.h"
 #include "DataFormats/SiStripDigi/interface/SiStripRawDigi.h"
 #include "DataFormats/FEDRawData/interface/FEDRawDataCollection.h"
-#include "boost/cstdint.hpp"
+#include "FWCore/Utilities/interface/Visibility.h"
 #include <string>
+#include <cstdint>
 namespace edm {
   class ConfigurationDescriptions;
 }

@@ -236,7 +236,6 @@ void TrackerOfflineValidationSummary::endJob() {
   this->fillTree(*tree, mTobResiduals_, *treeMemPtr, *tkGeom_, *substructureName, tTopo);
   this->fillTree(*tree, mTecResiduals_, *treeMemPtr, *tkGeom_, *substructureName, tTopo);
 
-  //dbe_->showDirStructure();
   //dbe_->save("dqmOut.root");
 
   // Method for filling histograms which show summarized values (mean, rms, median ...)
@@ -475,24 +474,6 @@ void TrackerOfflineValidationSummary::fillTree(TTree& tree,
         treeMem.fitSigmaNormY = fitMeanSigma.second;
       }
       treeMem.histNameNormY = h->GetName();
-    }
-
-    // Delete module level hists if set in cfg
-    const bool removeModuleLevelHists(parSet_.getParameter<bool>("removeModuleLevelHists"));
-    if (removeModuleLevelHists) {
-      dbe_->setCurrentFolder("");
-      if (it->second.ResHisto)
-        dbe_->removeElement(histDir + "/" + it->second.ResHisto->GetName());
-      if (it->second.NormResHisto)
-        dbe_->removeElement(histDir + "/" + it->second.NormResHisto->GetName());
-      if (it->second.ResXprimeHisto)
-        dbe_->removeElement(histDir + "/" + it->second.ResXprimeHisto->GetName());
-      if (it->second.NormResXprimeHisto)
-        dbe_->removeElement(histDir + "/" + it->second.NormResXprimeHisto->GetName());
-      if (it->second.ResYprimeHisto)
-        dbe_->removeElement(histDir + "/" + it->second.ResYprimeHisto->GetName());
-      if (it->second.NormResYprimeHisto)
-        dbe_->removeElement(histDir + "/" + it->second.NormResYprimeHisto->GetName());
     }
 
     tree.Fill();

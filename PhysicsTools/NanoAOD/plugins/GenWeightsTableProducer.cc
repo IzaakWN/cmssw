@@ -10,6 +10,7 @@
 #include "SimDataFormats/GeneratorProducts/interface/GenEventInfoProduct.h"
 #include "SimDataFormats/GeneratorProducts/interface/LHEEventProduct.h"
 #include "SimDataFormats/GeneratorProducts/interface/LHERunInfoProduct.h"
+#include "SimDataFormats/GeneratorProducts/interface/GenLumiInfoHeader.h"
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 #include "boost/algorithm/string.hpp"
 
@@ -123,6 +124,39 @@ namespace {
     }
   };
 
+  struct CounterMap {
+    std::map<std::string, Counter> countermap;
+    Counter* active_el = nullptr;
+    std::string active_label = "";
+    void merge(const CounterMap& other) {
+      for (const auto& y : other.countermap)
+        countermap[y.first].merge(y.second);
+      active_el = nullptr;
+    }
+    void clear() {
+      for (auto x : countermap)
+        x.second.clear();
+      active_el = nullptr;
+      active_label = "";
+    }
+    void setLabel(std::string label) {
+      active_el = &(countermap[label]);
+      active_label = label;
+    }
+    void checkLabelSet() {
+      if (!active_el)
+        throw cms::Exception("LogicError", "Called CounterMap::get() before setting the active label\n");
+    }
+    Counter* get() {
+      checkLabelSet();
+      return active_el;
+    }
+    std::string& getLabel() {
+      checkLabelSet();
+      return active_label;
+    }
+  };
+
   ///  ---- RunCache object for dynamic choice of LHE IDs ----
   struct DynamicWeightChoice {
     // choice of LHE weights
@@ -135,6 +169,27 @@ namespace {
     // ---- rwgt ----
     std::vector<std::string> rwgtIDs;
     std::string rwgtWeightDoc;
+  };
+
+  struct DynamicWeightChoiceGenInfo {
+    // choice of LHE weights
+    // ---- scale ----
+    std::vector<unsigned int> scaleWeightIDs;
+    std::string scaleWeightsDoc;
+    // ---- pdf ----
+    std::vector<unsigned int> pdfWeightIDs;
+    std::string pdfWeightsDoc;
+    // ---- ps ----
+    std::vector<unsigned int> psWeightIDs;
+  };
+
+  struct LumiCacheInfoHolder {
+    CounterMap countermap;
+    DynamicWeightChoiceGenInfo weightChoice;
+    void clear() {
+      countermap.clear();
+      weightChoice = DynamicWeightChoiceGenInfo();
+    }
   };
 
   float stof_fortrancomp(const std::string& str) {
@@ -178,9 +233,9 @@ namespace {
   };
 }  // namespace
 
-class GenWeightsTableProducer : public edm::global::EDProducer<edm::StreamCache<Counter>,
+class GenWeightsTableProducer : public edm::global::EDProducer<edm::StreamCache<LumiCacheInfoHolder>,
                                                                edm::RunCache<DynamicWeightChoice>,
-                                                               edm::RunSummaryCache<Counter>,
+                                                               edm::RunSummaryCache<CounterMap>,
                                                                edm::EndRunProducer> {
 public:
   GenWeightsTableProducer(edm::ParameterSet const& params)
@@ -190,6 +245,8 @@ public:
                                       [this](const edm::InputTag& tag) { return mayConsume<LHEEventProduct>(tag); })),
         lheRunTag_(edm::vector_transform(
             lheLabel_, [this](const edm::InputTag& tag) { return mayConsume<LHERunInfoProduct, edm::InRun>(tag); })),
+        genLumiInfoHeadTag_(
+            mayConsume<GenLumiInfoHeader, edm::InLumi>(params.getParameter<edm::InputTag>("genLumiInfoHeader"))),
         namedWeightIDs_(params.getParameter<std::vector<std::string>>("namedWeightIDs")),
         namedWeightLabels_(params.getParameter<std::vector<std::string>>("namedWeightLabels")),
         lheWeightPrecision_(params.getParameter<int32_t>("lheWeightPrecision")),
@@ -198,6 +255,7 @@ public:
         debugRun_(debug_.load()),
         hasIssuedWarning_(false) {
     produces<nanoaod::FlatTable>();
+    produces<std::string>("genModel");
     produces<nanoaod::FlatTable>("LHEScale");
     produces<nanoaod::FlatTable>("LHEPdf");
     produces<nanoaod::FlatTable>("LHEReweighting");
@@ -220,7 +278,7 @@ public:
 
   void produce(edm::StreamID id, edm::Event& iEvent, const edm::EventSetup& iSetup) const override {
     // get my counter for weights
-    Counter* counter = streamCache(id);
+    Counter* counter = streamCache(id)->countermap.get();
 
     // generator information (always available)
     edm::Handle<GenEventInfoProduct> genInfo;
@@ -232,6 +290,11 @@ public:
     out->setDoc("generator weight");
     out->addColumnValue<float>("", weight, "generator weight", nanoaod::FlatTable::FloatColumn);
     iEvent.put(std::move(out));
+
+    std::string model_label = streamCache(id)->countermap.getLabel();
+    auto outM = std::make_unique<std::string>((!model_label.empty()) ? std::string("GenModel_") + model_label : "");
+    iEvent.put(std::move(outM), "genModel");
+    bool getLHEweightsFromGenInfo = !model_label.empty();
 
     // tables for LHE weights, may not be filled
     std::unique_ptr<nanoaod::FlatTable> lheScaleTab, lhePdfTab, lheRwgtTab, lheNamedTab;
@@ -245,11 +308,21 @@ public:
       }
     }
     if (lheInfo.isValid()) {
+      if (getLHEweightsFromGenInfo)
+        edm::LogWarning("LHETablesProducer")
+            << "Found both a LHEEventProduct and a GenLumiInfoHeader: will only save weights from LHEEventProduct.\n";
       // get the dynamic choice of weights
       const DynamicWeightChoice* weightChoice = runCache(iEvent.getRun().index());
       // go fill tables
       fillLHEWeightTables(
           counter, weightChoice, weight, *lheInfo, *genInfo, lheScaleTab, lhePdfTab, lheRwgtTab, lheNamedTab, genPSTab);
+    } else if (getLHEweightsFromGenInfo) {
+      const DynamicWeightChoiceGenInfo* weightChoice = &(streamCache(id)->weightChoice);
+      fillLHEPdfWeightTablesFromGenInfo(
+          counter, weightChoice, weight, *genInfo, lheScaleTab, lhePdfTab, lheNamedTab, genPSTab);
+      lheRwgtTab.reset(new nanoaod::FlatTable(1, "LHEReweightingWeights", true));
+      //lheNamedTab.reset(new nanoaod::FlatTable(1, "LHENamedWeights", true));
+      //genPSTab.reset(new nanoaod::FlatTable(1, "PSWeight", true));
     } else {
       // Still try to add the PS weights
       fillOnlyPSWeightTable(counter, weight, *genInfo, genPSTab);
@@ -315,8 +388,9 @@ public:
     int vectorSize = (genProd.weights().size() == 14 || genProd.weights().size() == 46) ? 4 : 1;
     std::vector<double> wPS(vectorSize, 1);
     if (vectorSize > 1) {
+      double nominal = genProd.weights()[1];  // Called 'Baseline' in GenLumiInfoHeader
       for (unsigned int i = 6; i < 10; i++) {
-        wPS[i - 6] = (genProd.weights()[i]) / w0;
+        wPS[i - 6] = (genProd.weights()[i]) / nominal;
       }
     }
     outPS.reset(new nanoaod::FlatTable(wPS.size(), "PSWeight", false));
@@ -356,6 +430,62 @@ public:
     counter->incLHE(genWeight, wScale, wPDF, wRwgt, wNamed, wPS);
   }
 
+  void fillLHEPdfWeightTablesFromGenInfo(Counter* counter,
+                                         const DynamicWeightChoiceGenInfo* weightChoice,
+                                         double genWeight,
+                                         const GenEventInfoProduct& genProd,
+                                         std::unique_ptr<nanoaod::FlatTable>& outScale,
+                                         std::unique_ptr<nanoaod::FlatTable>& outPdf,
+                                         std::unique_ptr<nanoaod::FlatTable>& outNamed,
+                                         std::unique_ptr<nanoaod::FlatTable>& outPS) const {
+    const std::vector<unsigned int>& scaleWeightIDs = weightChoice->scaleWeightIDs;
+    const std::vector<unsigned int>& pdfWeightIDs = weightChoice->pdfWeightIDs;
+    const std::vector<unsigned int>& psWeightIDs = weightChoice->psWeightIDs;
+
+    auto weights = genProd.weights();
+    double w0 = weights.at(1);
+    double originalXWGTUP = weights.at(1);
+    ;
+
+    std::vector<double> wScale, wPDF, wPS;
+    for (auto id : scaleWeightIDs)
+      wScale.push_back(weights.at(id) / w0);
+    for (auto id : pdfWeightIDs) {
+      wPDF.push_back(weights.at(id) / w0);
+    }
+    if (!psWeightIDs.empty()) {
+      for (auto id : psWeightIDs)
+        wPS.push_back((weights.at(id)) / w0);
+    } else
+      wPS.push_back(1.0);
+
+    outScale.reset(new nanoaod::FlatTable(wScale.size(), "LHEScaleWeight", false));
+    outScale->addColumn<float>(
+        "", wScale, weightChoice->scaleWeightsDoc, nanoaod::FlatTable::FloatColumn, lheWeightPrecision_);
+
+    outPdf.reset(new nanoaod::FlatTable(wPDF.size(), "LHEPdfWeight", false));
+    outPdf->addColumn<float>(
+        "", wPDF, weightChoice->pdfWeightsDoc, nanoaod::FlatTable::FloatColumn, lheWeightPrecision_);
+
+    outPS.reset(new nanoaod::FlatTable(wPS.size(), "PSWeight", false));
+    outPS->addColumn<float>("",
+                            wPS,
+                            wPS.size() > 1 ? "PS weights (w_var / w_nominal); [0] is ISR=0.5 FSR=1; [1] is ISR=1 "
+                                             "FSR=0.5; [2] is ISR=2 FSR=1; [3] is ISR=1 FSR=2 "
+                                           : "dummy PS weight (1.0) ",
+                            nanoaod::FlatTable::FloatColumn,
+                            lheWeightPrecision_);
+
+    outNamed.reset(new nanoaod::FlatTable(1, "LHEWeight", true));
+    outNamed->addColumnValue<float>(
+        "originalXWGTUP", originalXWGTUP, "Nominal event weight in the LHE file", nanoaod::FlatTable::FloatColumn);
+    /*for (unsigned int i = 0, n = wNamed.size(); i < n; ++i) {
+      outNamed->addColumnValue<float>(namedWeightLabels_[i], wNamed[i], "LHE weight for id "+namedWeightIDs_[i]+", relative to nominal", nanoaod::FlatTable::FloatColumn, lheWeightPrecision_);
+      }*/
+
+    counter->incLHE(genWeight, wScale, wPDF, std::vector<double>(), std::vector<double>(), wPS);
+  }
+
   void fillOnlyPSWeightTable(Counter* counter,
                              double genWeight,
                              const GenEventInfoProduct& genProd,
@@ -364,8 +494,9 @@ public:
 
     std::vector<double> wPS(vectorSize, 1);
     if (vectorSize > 1) {
+      double nominal = genProd.weights()[1];  // Called 'Baseline' in GenLumiInfoHeader
       for (unsigned int i = 6; i < 10; i++) {
-        wPS[i - 6] = (genProd.weights()[i]) / genWeight;
+        wPS[i - 6] = (genProd.weights()[i]) / nominal;
       }
     }
 
@@ -724,52 +855,172 @@ public:
   }
 
   // create an empty counter
-  std::unique_ptr<Counter> beginStream(edm::StreamID) const override { return std::make_unique<Counter>(); }
+  std::unique_ptr<LumiCacheInfoHolder> beginStream(edm::StreamID) const override {
+    return std::make_unique<LumiCacheInfoHolder>();
+  }
   // inizialize to zero at begin run
   void streamBeginRun(edm::StreamID id, edm::Run const&, edm::EventSetup const&) const override {
     streamCache(id)->clear();
   }
+  void streamBeginLuminosityBlock(edm::StreamID id,
+                                  edm::LuminosityBlock const& lumiBlock,
+                                  edm::EventSetup const& eventSetup) const override {
+    auto counterMap = &(streamCache(id)->countermap);
+    edm::Handle<GenLumiInfoHeader> genLumiInfoHead;
+    lumiBlock.getByToken(genLumiInfoHeadTag_, genLumiInfoHead);
+    if (!genLumiInfoHead.isValid())
+      edm::LogWarning("LHETablesProducer")
+          << "No GenLumiInfoHeader product found, will not fill generator model string.\n";
+    std::string label;
+    if (genLumiInfoHead.isValid()) {
+      label = genLumiInfoHead->configDescription();
+      boost::replace_all(label, "-", "_");
+      boost::replace_all(label, "/", "_");
+    }
+    counterMap->setLabel(label);
+
+    if (genLumiInfoHead.isValid()) {
+      auto weightChoice = &(streamCache(id)->weightChoice);
+
+      std::vector<ScaleVarWeight> scaleVariationIDs;
+      std::vector<PDFSetWeights> pdfSetWeightIDs;
+      weightChoice->psWeightIDs.clear();
+
+      std::regex scalew("LHE,\\s+id\\s+=\\s+(\\d+),\\s+(.+)\\,\\s+mur=(\\S+)\\smuf=(\\S+)");
+      std::regex pdfw("LHE,\\s+id\\s+=\\s+(\\d+),\\s+(.+),\\s+Member\\s+(\\d+)\\s+of\\ssets\\s+(\\w+\\b)");
+      std::smatch groups;
+      auto weightNames = genLumiInfoHead->weightNames();
+      std::unordered_map<std::string, uint32_t> knownPDFSetsFromGenInfo_;
+      unsigned int weightIter = 0;
+      for (auto line : weightNames) {
+        if (std::regex_search(line, groups, scalew)) {  // scale variation
+          auto id = groups.str(1);
+          auto group = groups.str(2);
+          auto mur = groups.str(3);
+          auto muf = groups.str(4);
+          if (group.find("Central scale variation") != std::string::npos)
+            scaleVariationIDs.emplace_back(groups.str(1), groups.str(2), groups.str(3), groups.str(4));
+        } else if (std::regex_search(line, groups, pdfw)) {  // PDF variation
+          auto id = groups.str(1);
+          auto group = groups.str(2);
+          auto memberid = groups.str(3);
+          auto pdfset = groups.str(4);
+          if (group.find(pdfset) != std::string::npos) {
+            if (knownPDFSetsFromGenInfo_.find(pdfset) == knownPDFSetsFromGenInfo_.end()) {
+              knownPDFSetsFromGenInfo_[pdfset] = std::atoi(id.c_str());
+              pdfSetWeightIDs.emplace_back(id, std::atoi(id.c_str()));
+            } else
+              pdfSetWeightIDs.back().add(id, std::atoi(id.c_str()));
+          }
+        } else if (line.find("isrDef") != std::string::npos ||
+                   line.find("fsrDef") != std::string::npos) {  // PS variation
+          weightChoice->psWeightIDs.push_back(weightIter);
+        }
+        weightIter++;
+      }
+
+      weightChoice->scaleWeightIDs.clear();
+      weightChoice->pdfWeightIDs.clear();
+
+      std::sort(scaleVariationIDs.begin(), scaleVariationIDs.end());
+      std::stringstream scaleDoc;
+      scaleDoc << "LHE scale variation weights (w_var / w_nominal); ";
+      for (unsigned int isw = 0, nsw = scaleVariationIDs.size(); isw < nsw; ++isw) {
+        const auto& sw = scaleVariationIDs[isw];
+        if (isw)
+          scaleDoc << "; ";
+        scaleDoc << "[" << isw << "] is " << sw.label;
+        weightChoice->scaleWeightIDs.push_back(std::atoi(sw.wid.c_str()));
+      }
+      if (!scaleVariationIDs.empty())
+        weightChoice->scaleWeightsDoc = scaleDoc.str();
+      std::stringstream pdfDoc;
+      pdfDoc << "LHE pdf variation weights (w_var / w_nominal) for LHA names ";
+      bool found = false;
+      for (const auto& pw : pdfSetWeightIDs) {
+        if (pw.wids.size() == 1)
+          continue;  // only consider error sets
+        for (auto wantedpdf : lhaNameToID_) {
+          auto pdfname = wantedpdf.first;
+          if (knownPDFSetsFromGenInfo_.find(pdfname) == knownPDFSetsFromGenInfo_.end())
+            continue;
+          uint32_t lhaid = knownPDFSetsFromGenInfo_.at(pdfname);
+          if (pw.lhaIDs.first != lhaid)
+            continue;
+          pdfDoc << pdfname;
+          for (auto x : pw.wids)
+            weightChoice->pdfWeightIDs.push_back(std::atoi(x.c_str()));
+          if (maxPdfWeights_ < pw.wids.size()) {
+            weightChoice->pdfWeightIDs.resize(maxPdfWeights_);  // drop some replicas
+            pdfDoc << ", truncated to the first " << maxPdfWeights_ << " replicas";
+          }
+          weightChoice->pdfWeightsDoc = pdfDoc.str();
+          found = true;
+          break;
+        }
+        if (found)
+          break;
+      }
+    }
+  }
   // create an empty counter
-  std::shared_ptr<Counter> globalBeginRunSummary(edm::Run const&, edm::EventSetup const&) const override {
-    return std::make_shared<Counter>();
+  std::shared_ptr<CounterMap> globalBeginRunSummary(edm::Run const&, edm::EventSetup const&) const override {
+    return std::make_shared<CounterMap>();
   }
   // add this stream to the summary
   void streamEndRunSummary(edm::StreamID id,
                            edm::Run const&,
                            edm::EventSetup const&,
-                           Counter* runCounter) const override {
-    runCounter->merge(*streamCache(id));
+                           CounterMap* runCounterMap) const override {
+    runCounterMap->merge(streamCache(id)->countermap);
   }
   // nothing to do per se
-  void globalEndRunSummary(edm::Run const&, edm::EventSetup const&, Counter* runCounter) const override {}
+  void globalEndRunSummary(edm::Run const&, edm::EventSetup const&, CounterMap* runCounterMap) const override {}
   // write the total to the run
-  void globalEndRunProduce(edm::Run& iRun, edm::EventSetup const&, Counter const* runCounter) const override {
+  void globalEndRunProduce(edm::Run& iRun, edm::EventSetup const&, CounterMap const* runCounterMap) const override {
     auto out = std::make_unique<nanoaod::MergeableCounterTable>();
-    out->addInt("genEventCount", "event count", runCounter->num);
-    out->addFloat("genEventSumw", "sum of gen weights", runCounter->sumw);
-    out->addFloat("genEventSumw2", "sum of gen (weight^2)", runCounter->sumw2);
 
-    double norm = runCounter->sumw ? 1.0 / runCounter->sumw : 1;
-    auto sumScales = runCounter->sumScale;
-    for (auto& val : sumScales)
-      val *= norm;
-    out->addVFloat("LHEScaleSumw", "Sum of genEventWeight * LHEScaleWeight[i], divided by genEventSumw", sumScales);
-    auto sumPDFs = runCounter->sumPDF;
-    for (auto& val : sumPDFs)
-      val *= norm;
-    out->addVFloat("LHEPdfSumw", "Sum of genEventWeight * LHEPdfWeight[i], divided by genEventSumw", sumPDFs);
-    if (!runCounter->sumRwgt.empty()) {
-      auto sumRwgts = runCounter->sumRwgt;
-      for (auto& val : sumRwgts)
+    for (auto x : runCounterMap->countermap) {
+      auto runCounter = &(x.second);
+      std::string label = (!x.first.empty()) ? (std::string("_") + x.first) : "";
+      std::string doclabel = (!x.first.empty()) ? (std::string(", for model label ") + x.first) : "";
+
+      out->addInt("genEventCount" + label, "event count" + doclabel, runCounter->num);
+      out->addFloat("genEventSumw" + label, "sum of gen weights" + doclabel, runCounter->sumw);
+      out->addFloat("genEventSumw2" + label, "sum of gen (weight^2)" + doclabel, runCounter->sumw2);
+
+      double norm = runCounter->sumw ? 1.0 / runCounter->sumw : 1;
+      auto sumScales = runCounter->sumScale;
+      for (auto& val : sumScales)
         val *= norm;
-      out->addVFloat(
-          "LHEReweightingSumw", "Sum of genEventWeight * LHEReweightingWeight[i], divided by genEventSumw", sumRwgts);
-    }
-    if (!runCounter->sumNamed.empty()) {  // it could be empty if there's no LHE info in the sample
-      for (unsigned int i = 0, n = namedWeightLabels_.size(); i < n; ++i) {
-        out->addFloat("LHESumw_" + namedWeightLabels_[i],
-                      "Sum of genEventWeight * LHEWeight_" + namedWeightLabels_[i] + ", divided by genEventSumw",
-                      runCounter->sumNamed[i] * norm);
+      out->addVFloatWithNorm("LHEScaleSumw" + label,
+                             "Sum of genEventWeight * LHEScaleWeight[i], divided by genEventSumw" + doclabel,
+                             sumScales,
+                             runCounter->sumw);
+      auto sumPDFs = runCounter->sumPDF;
+      for (auto& val : sumPDFs)
+        val *= norm;
+      out->addVFloatWithNorm("LHEPdfSumw" + label,
+                             "Sum of genEventWeight * LHEPdfWeight[i], divided by genEventSumw" + doclabel,
+                             sumPDFs,
+                             runCounter->sumw);
+      if (!runCounter->sumRwgt.empty()) {
+        auto sumRwgts = runCounter->sumRwgt;
+        for (auto& val : sumRwgts)
+          val *= norm;
+        out->addVFloatWithNorm("LHEReweightingSumw" + label,
+                               "Sum of genEventWeight * LHEReweightingWeight[i], divided by genEventSumw" + doclabel,
+                               sumRwgts,
+                               runCounter->sumw);
+      }
+      if (!runCounter->sumNamed.empty()) {  // it could be empty if there's no LHE info in the sample
+        for (unsigned int i = 0, n = namedWeightLabels_.size(); i < n; ++i) {
+          out->addFloatWithNorm(
+              "LHESumw_" + namedWeightLabels_[i] + label,
+              "Sum of genEventWeight * LHEWeight_" + namedWeightLabels_[i] + ", divided by genEventSumw" + doclabel,
+              runCounter->sumNamed[i] * norm,
+              runCounter->sumw);
+        }
       }
     }
     iRun.put(std::move(out));
@@ -781,6 +1032,8 @@ public:
     edm::ParameterSetDescription desc;
     desc.add<edm::InputTag>("genEvent", edm::InputTag("generator"))
         ->setComment("tag for the GenEventInfoProduct, to get the main weight");
+    desc.add<edm::InputTag>("genLumiInfoHeader", edm::InputTag("generator"))
+        ->setComment("tag for the GenLumiInfoProduct, to get the model string");
     desc.add<std::vector<edm::InputTag>>("lheInfo", std::vector<edm::InputTag>{{"externalLHEProducer"}, {"source"}})
         ->setComment("tag(s) for the LHE information (LHEEventProduct and LHERunInfoProduct)");
 
@@ -804,6 +1057,7 @@ protected:
   const std::vector<edm::InputTag> lheLabel_;
   const std::vector<edm::EDGetTokenT<LHEEventProduct>> lheTag_;
   const std::vector<edm::EDGetTokenT<LHERunInfoProduct>> lheRunTag_;
+  const edm::EDGetTokenT<GenLumiInfoHeader> genLumiInfoHeadTag_;
 
   std::vector<uint32_t> preferredPDFLHAIDs_;
   std::unordered_map<std::string, uint32_t> lhaNameToID_;

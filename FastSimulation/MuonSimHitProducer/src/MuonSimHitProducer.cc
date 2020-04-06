@@ -21,6 +21,7 @@
 //
 
 // CMSSW headers
+#include "FWCore/Framework/interface/ConsumesCollector.h"
 #include "FWCore/Framework/interface/MakerMacros.h"
 
 // Fast Simulation headers
@@ -89,7 +90,7 @@ MuonSimHitProducer::MuonSimHitProducer(const edm::ParameterSet& iConfig)
   produces<edm::PSimHitContainer>("MuonRPCHits");
 
   edm::ParameterSet serviceParameters = iConfig.getParameter<edm::ParameterSet>("ServiceParameters");
-  theService = new MuonServiceProxy(serviceParameters);
+  theService = new MuonServiceProxy(serviceParameters, consumesCollector(), MuonServiceProxy::UseEventSetupIn::Run);
 
   // consumes
   simMuonToken = consumes<std::vector<SimTrack> >(simMuonLabel);
@@ -115,7 +116,8 @@ void MuonSimHitProducer::beginRun(edm::Run const& run, const edm::EventSetup& es
   cscGeom = &(*cscGeometry);
   rpcGeom = &(*rpcGeometry);
 
-  theService->update(es);
+  bool duringEvent = false;
+  theService->update(es, duringEvent);
 
   // A few propagators
   propagatorWithMaterial = &(*(theService->propagator("SteppingHelixPropagatorAny")));
@@ -168,9 +170,8 @@ void MuonSimHitProducer::produce(edm::Event& iEvent, const edm::EventSetup& iSet
     // Decaying hadrons are now in the list, and so are their muon daughter
     // Ignore the hadrons here.
     int pid = mySimTrack.type();
-    if (abs(pid) != 13)
+    if (abs(pid) != 13 && abs(pid) != 1000024)
       continue;
-
     double t0 = 0;
     GlobalPoint initialPosition;
     int ivert = mySimTrack.vertIndex();

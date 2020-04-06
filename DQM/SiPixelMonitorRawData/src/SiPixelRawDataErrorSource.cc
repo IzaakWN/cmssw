@@ -35,7 +35,7 @@
 #include "Geometry/CommonTopologies/interface/PixelTopology.h"
 #include "Geometry/Records/interface/TrackerDigiGeometryRecord.h"
 #include "Geometry/Records/interface/TrackerTopologyRcd.h"
-#include "Geometry/TrackerGeometryBuilder/interface/PixelGeomDetUnit.h"
+#include "Geometry/CommonDetUnit/interface/PixelGeomDetUnit.h"
 #include "Geometry/TrackerGeometryBuilder/interface/TrackerGeometry.h"
 // DataFormats
 #include "DataFormats/DetId/interface/DetId.h"
@@ -285,8 +285,10 @@ void SiPixelRawDataErrorSource::bookMEs(DQMStore::IBooker &iBooker) {
   iBooker.setCurrentFolder(topFolderName_ + "/AdditionalPixelErrors");
   char title[80];
   sprintf(title, "By-LumiSection Error counters");
-  byLumiErrors = iBooker.book1D("byLumiErrors", title, 2, 0., 2.);
-  byLumiErrors->setLumiFlag();
+  {
+    auto scope = DQMStore::IBooker::UseLumiScope(iBooker);
+    byLumiErrors = iBooker.book1D("byLumiErrors", title, 2, 0., 2.);
+  }
   char title1[80];
   sprintf(title1, "Errors per LumiSection;LumiSection;NErrors");
   errorRate = iBooker.book1D("errorRate", title1, 5000, 0., 5000.);

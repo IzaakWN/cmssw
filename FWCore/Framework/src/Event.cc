@@ -1,7 +1,6 @@
 #include "FWCore/Framework/interface/Event.h"
 
 #include "DataFormats/Common/interface/TriggerResults.h"
-#include "DataFormats/Provenance/interface/ProcessHistoryRegistry.h"
 #include "DataFormats/Provenance/interface/Provenance.h"
 #include "DataFormats/Provenance/interface/StableProvenance.h"
 #include "DataFormats/Provenance/interface/ParentageRegistry.h"
@@ -22,9 +21,7 @@ namespace edm {
   Event::Event(EventPrincipal const& ep, ModuleDescription const& md, ModuleCallingContext const* moduleCallingContext)
       : provRecorder_(ep, md, true /*always at end*/),
         aux_(ep.aux()),
-        luminosityBlock_(ep.luminosityBlockPrincipalPtrValid()
-                             ? new LuminosityBlock(ep.luminosityBlockPrincipal(), md, moduleCallingContext, false)
-                             : nullptr),
+        luminosityBlock_(),
         gotBranchIDs_(),
         gotViews_(),
         streamID_(ep.streamID()),
@@ -37,12 +34,23 @@ namespace edm {
   void Event::setConsumer(EDConsumerBase const* iConsumer) {
     provRecorder_.setConsumer(iConsumer);
     gotBranchIDs_.reserve(provRecorder_.numberOfProductsConsumed());
-    const_cast<LuminosityBlock*>(luminosityBlock_.get())->setConsumer(iConsumer);
+    if (luminosityBlock_) {
+      luminosityBlock_->setConsumer(iConsumer);
+    }
   }
 
   void Event::setSharedResourcesAcquirer(SharedResourcesAcquirer* iResourceAcquirer) {
     provRecorder_.setSharedResourcesAcquirer(iResourceAcquirer);
-    const_cast<LuminosityBlock*>(luminosityBlock_.get())->setSharedResourcesAcquirer(iResourceAcquirer);
+    if (luminosityBlock_) {
+      luminosityBlock_->setSharedResourcesAcquirer(iResourceAcquirer);
+    }
+  }
+
+  void Event::fillLuminosityBlock() const {
+    luminosityBlock_.emplace(
+        eventPrincipal().luminosityBlockPrincipal(), provRecorder_.moduleDescription(), moduleCallingContext_, false);
+    luminosityBlock_->setConsumer(provRecorder_.getConsumer());
+    luminosityBlock_->setSharedResourcesAcquirer(provRecorder_.getSharedResourcesAcquirer());
   }
 
   void Event::setProducerCommon(ProducerBase const* iProd, std::vector<BranchID>* previousParentage) {

@@ -124,12 +124,13 @@ OscarProducer::OscarProducer(edm::ParameterSet const& p) {
   produces<edm::PCaloHitContainer>("FibreHits");
   produces<edm::PCaloHitContainer>("WedgeHits");
   produces<edm::PCaloHitContainer>("HFNoseHits");
+  produces<edm::PCaloHitContainer>("TotemHitsT2Scint");
 
   //register any products
   m_producers = m_runManager->producers();
 
   for (Producers::iterator itProd = m_producers.begin(); itProd != m_producers.end(); ++itProd) {
-    (*itProd)->registerProducts(*this);
+    (*itProd)->registerProducts(producesCollector());
   }
 
   //UIsession manager for message handling

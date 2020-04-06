@@ -18,10 +18,9 @@ struct MahiNnlsWorkspace {
   unsigned int nPulseTot;
   unsigned int tsSize;
   unsigned int tsOffset;
-  unsigned int fullTSOffset;
   int bxOffset;
   int maxoffset;
-  double dt;
+  float dt;
 
   //holds active bunch crossings
   BXVector bxs;
@@ -33,11 +32,11 @@ struct MahiNnlsWorkspace {
   SampleVector noiseTerms;
 
   //holds flat pedestal uncertainty
-  SampleMatrix pedConstraint;
+  float pedVal;
 
   //holds full covariance matrix for a pulse shape
   //varied in time
-  std::array<FullSampleMatrix, MaxPVSize> pulseCovArray;
+  std::array<SampleMatrix, MaxPVSize> pulseCovArray;
 
   //holds matrix of pulse shape templates for each BX
   SamplePulseMatrix pulseMat;
@@ -54,7 +53,6 @@ struct MahiNnlsWorkspace {
   PulseVector aTbVec;  // A-transpose b (vector)
 
   SampleDecompLLT covDecomp;
-  PulseDecompLDLT pulseDecomp;
 };
 
 struct MahiDebugInfo {
@@ -78,17 +76,14 @@ struct MahiDebugInfo {
   float mahiEnergy;
   float chiSq;
   float arrivalTime;
-
-  float pEnergy;
-  float nEnergy;
   float pedEnergy;
+  float ootEnergy[7];
 
   float count[MaxSVSize];
   float inputTS[MaxSVSize];
   int inputTDC[MaxSVSize];
   float itPulse[MaxSVSize];
-  float pPulse[MaxSVSize];
-  float nPulse[MaxSVSize];
+  float ootPulse[7][MaxSVSize];
 };
 
 class MahiFit {
@@ -121,24 +116,27 @@ public:
 
   void doFit(std::array<float, 3>& correctedOutput, const int nbx) const;
 
-  void setPulseShapeTemplate(const HcalPulseShapes::Shape& ps, const HcalTimeSlew* hcalTimeSlewDelay);
-  void resetPulseShapeTemplate(const HcalPulseShapes::Shape& ps);
+  void setPulseShapeTemplate(const HcalPulseShapes::Shape& ps,
+                             bool hasTimeInfo,
+                             const HcalTimeSlew* hcalTimeSlewDelay,
+                             unsigned int nSamples);
+  void resetPulseShapeTemplate(const HcalPulseShapes::Shape& ps, bool hasTimeInfo, unsigned int nSamples);
 
   typedef BXVector::Index Index;
   const HcalPulseShapes::Shape* currentPulseShape_ = nullptr;
   const HcalTimeSlew* hcalTimeSlewDelay_ = nullptr;
 
 private:
-  double minimize() const;
+  const float minimize() const;
   void onePulseMinimize() const;
-  void updateCov() const;
-  void updatePulseShape(double itQ,
+  void updateCov(const SampleMatrix& invCovMat) const;
+  void updatePulseShape(const float itQ,
                         FullSampleVector& pulseShape,
                         FullSampleVector& pulseDeriv,
                         FullSampleMatrix& pulseCov) const;
 
-  float calculateArrivalTime() const;
-  double calculateChiSq() const;
+  float calculateArrivalTime(unsigned int iBX) const;
+  float calculateChiSq() const;
   void nnls() const;
   void resetWorkspace() const;
 
@@ -150,14 +148,11 @@ private:
   mutable MahiNnlsWorkspace nnlsWork_;
 
   //hard coded in initializer
-  const unsigned int fullTSSize_;
-  const unsigned int fullTSofInterest_;
-
   static constexpr int pedestalBX_ = 100;
 
   // used to restrict returned time value to a 25 ns window centered
   // on the nominal arrival time
-  static constexpr float timeLimit_ = 12.5;
+  static constexpr float timeLimit_ = 12.5f;
 
   // Python-configurables
   bool dynamicPed_;
@@ -167,6 +162,7 @@ private:
   bool applyTimeSlew_;
   HcalTimeSlew::BiasSetting slewFlavor_;
   float tsDelay1GeV_ = 0.f;
+  float norm_ = (1.f / std::sqrt(12));
 
   bool calculateArrivalTime_;
   float meanTime_;

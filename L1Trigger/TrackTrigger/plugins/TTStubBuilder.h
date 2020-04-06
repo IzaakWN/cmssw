@@ -24,7 +24,7 @@
 #include "FWCore/Framework/interface/MakerMacros.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 
-#include "Geometry/TrackerGeometryBuilder/interface/PixelGeomDetUnit.h"
+#include "Geometry/CommonDetUnit/interface/PixelGeomDetUnit.h"
 #include "Geometry/CommonTopologies/interface/PixelTopology.h"
 
 #include "L1Trigger/TrackTrigger/interface/TTStubAlgorithm.h"
@@ -151,13 +151,13 @@ void TTStubBuilder<T>::endRun(const edm::Run& run, const edm::EventSetup& iSetup
 template <typename T>
 bool TTStubBuilder<T>::SortStubBendPairs(const std::pair<unsigned int, double>& left,
                                          const std::pair<unsigned int, double>& right) {
-  return fabs(left.second) < fabs(right.second);
+  return std::abs(left.second) < std::abs(right.second);
 }
 
 /// Analogous sorting routine directly from stubs
 template <typename T>
 bool TTStubBuilder<T>::SortStubsBend(const TTStub<T>& left, const TTStub<T>& right) {
-  return fabs(left.getTriggerBend()) < fabs(right.getTriggerBend());
+  return std::abs(left.bendFE()) < std::abs(right.bendFE());
 }
 
 /// Implement the producer

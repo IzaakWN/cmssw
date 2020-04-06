@@ -26,6 +26,7 @@ public:
   static const int HFNoseCoarseN = 8;
   static const int HFNoseFineTrigger = 3;
   static const int HFNoseCoarseTrigger = 2;
+  static const int HFNoseLayerEEmax = 6;
 
   /** Create a null cellid*/
   HFNoseDetId();
@@ -43,6 +44,7 @@ public:
 
   /** Converter for a geometry cell id */
   HFNoseDetId geometryCell() const { return HFNoseDetId(zside(), 0, layer(), waferU(), waferV(), 0, 0); }
+  HFNoseDetId moduleId() const { return HFNoseDetId(zside(), type(), layer(), waferU(), waferV(), 0, 0); }
 
   /// get the type
   int type() const { return (id_ >> kHFNoseTypeOffset) & kHFNoseTypeMask; }
@@ -81,15 +83,31 @@ public:
   int waferY() const { return (2 * waferV()); }
   std::pair<int, int> waferXY() const { return std::pair<int, int>(waferX(), waferY()); }
 
+  // get trigger cell u,v
+  int triggerCellU() const {
+    int N = (type() == HFNoseFine) ? HFNoseFineN : HFNoseCoarseN;
+    int NT = (type() == HFNoseFine) ? HFNoseFineTrigger : HFNoseCoarseTrigger;
+    return (cellU() >= N && cellV() >= N)
+               ? cellU() / NT
+               : ((cellU() < N && cellU() <= cellV()) ? cellU() / NT : (1 + (cellU() - (cellV() % NT + 1)) / NT));
+  }
+  int triggerCellV() const {
+    int N = (type() == HFNoseFine) ? HFNoseFineN : HFNoseCoarseN;
+    int NT = (type() == HFNoseFine) ? HFNoseFineTrigger : HFNoseCoarseTrigger;
+    return (cellU() >= N && cellV() >= N)
+               ? cellV() / NT
+               : ((cellU() < N && cellU() <= cellV()) ? ((cellV() - cellU()) / NT + cellU() / NT) : cellV() / NT);
+  }
+  std::pair<int, int> triggerCellUV() const { return std::pair<int, int>(triggerCellU(), triggerCellV()); }
+
   /// consistency check : no bits left => no overhead
-  bool isEE() const { return (layer() <= kHFNoseLayerEEmax); }
-  bool isHE() const { return (layer() > kHFNoseLayerEEmax); }
+  bool isEE() const { return (layer() <= HFNoseLayerEEmax); }
+  bool isHE() const { return (layer() > HFNoseLayerEEmax); }
   bool isForward() const { return true; }
 
   static const HFNoseDetId Undefined;
 
 private:
-  static const int kHFNoseLayerEEmax = 6;
   static const int kHFNoseCellUOffset = 0;
   static const int kHFNoseCellUMask = 0x1F;
   static const int kHFNoseCellVOffset = 5;

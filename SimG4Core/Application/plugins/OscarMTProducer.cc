@@ -121,12 +121,13 @@ OscarMTProducer::OscarMTProducer(edm::ParameterSet const& p, const OscarMTMaster
   produces<edm::PCaloHitContainer>("FibreHits");
   produces<edm::PCaloHitContainer>("WedgeHits");
   produces<edm::PCaloHitContainer>("HFNoseHits");
+  produces<edm::PCaloHitContainer>("TotemHitsT2Scint");
 
   //register any products
-  m_producers = m_runManagerWorker->producers();
+  auto& producers = m_runManagerWorker->producers();
 
-  for (Producers::iterator itProd = m_producers.begin(); itProd != m_producers.end(); ++itProd) {
-    (*itProd)->registerProducts(*this);
+  for (Producers::iterator itProd = producers.begin(); itProd != producers.end(); ++itProd) {
+    (*itProd)->registerProducts(producesCollector());
   }
 }
 
@@ -207,7 +208,8 @@ void OscarMTProducer::produce(edm::Event& e, const edm::EventSetup& es) {
     }
   }
 
-  for (auto& prod : m_producers) {
+  auto& producers = m_runManagerWorker->producers();
+  for (auto& prod : producers) {
     prod.get()->produce(e, es);
   }
   LogDebug("SimG4CoreApplication") << "Event is produced " << e.id() << " stream " << e.streamID()

@@ -238,10 +238,7 @@ class MatrixReader(object):
                     continue
                 if self.wm:
                     #cannot put a certain number of things in wm
-                    if stepName in [
-                        #'HARVEST','HARVESTD','HARVESTDreHLT',
-                        'RECODFROMRAWRECO','SKIMD','SKIMCOSD','SKIMDreHLT'
-                        ]:
+                    if stepName in ['SKIMD','SKIMCOSD','SKIMDreHLT']:
                         continue
                     
                 #replace stepName is needed
@@ -338,7 +335,6 @@ class MatrixReader(object):
                 
                 wfName,stepNames= name.split('+',1)
                 
-                stepNames=stepNames.replace('+RECODFROMRAWRECO','')
                 stepNames=stepNames.replace('+SKIMCOSD','')
                 stepNames=stepNames.replace('+SKIMD','')
                 if 'HARVEST' in stepNames:
@@ -416,7 +412,7 @@ class MatrixReader(object):
         return workflows
 
     def showWorkFlows(self, selected=None, extended=True, cafVeto=True):
-        if selected: selected = map(float,selected)
+        if selected: selected = list(map(float,selected))
         wfs = self.workFlowsByLocation(cafVeto)
         maxLen = 100 # for summary, limit width of output
         fmt1   = "%-6s %-35s [1]: %s ..."

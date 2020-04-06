@@ -550,7 +550,8 @@ void IsoTrig::fillDescriptions(edm::ConfigurationDescriptions &descriptions) {
   desc.addUntracked<double>("vertexCutIsol", 101.0);
   desc.addUntracked<double>("tauUnbiasCone", 1.2);
   desc.addUntracked<double>("prelimCone", 1.0);
-  descriptions.add("isoTrigHB", desc);
+  desc.add<unsigned int>("stageL1Trigger", 1);
+  descriptions.add("isoTrigDefault", desc);
 }
 
 void IsoTrig::analyze(const edm::Event &iEvent, const edm::EventSetup &iSetup) {
@@ -644,7 +645,7 @@ void IsoTrig::analyze(const edm::Event &iEvent, const edm::EventSetup &iSetup) {
                                  << mybxlumi;
   if (!triggerResults.isValid()) {
     edm::LogWarning("IsoTrack") << "Error! Can't get the product triggerResults";
-    //      boost::shared_ptr<cms::Exception> const & error = triggerResults.whyFailed();
+    //      std::shared_ptr<cms::Exception> const & error = triggerResults.whyFailed();
     //      edm::LogWarning(error->category()) << error->what();
   } else {
     std::vector<std::string> modules;

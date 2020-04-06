@@ -1,5 +1,6 @@
 // C++ headers
 #include <cmath>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <limits>
@@ -12,6 +13,10 @@
 // boost headers
 #include <boost/format.hpp>
 #include <boost/range/irange.hpp>
+
+// JSON headers
+#include <nlohmann/json.hpp>
+using json = nlohmann::json;
 
 // CMSSW headers
 #include "DQMServices/Core/interface/DQMStore.h"
@@ -44,18 +49,27 @@ namespace {
   template <class Rep, class Period>
   double ms(std::chrono::duration<Rep, Period> duration) {
     return std::chrono::duration_cast<std::chrono::duration<double, std::milli>>(duration).count();
-    ;
   }
 
   // convert any boost::chrono::duration to milliseconds
   template <class Rep, class Period>
   double ms(boost::chrono::duration<Rep, Period> duration) {
     return boost::chrono::duration_cast<boost::chrono::duration<double, boost::milli>>(duration).count();
-    ;
+  }
+
+  // convert a std::atomic<boost::chrono::nanoseconds::rep> to milliseconds
+  double ms(std::atomic<boost::chrono::nanoseconds::rep> const& duration) {
+    return boost::chrono::duration_cast<boost::chrono::duration<double, boost::milli>>(
+               boost::chrono::nanoseconds(duration.load()))
+        .count();
   }
 
   // convert from bytes to kilobytes, rounding down
   uint64_t kB(uint64_t bytes) { return bytes / 1024; }
+
+  // convert from bytes to kilobytes, rounding down
+  uint64_t kB(std::atomic<uint64_t> const& bytes) { return bytes.load() / 1024; }
+
 }  // namespace
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -85,7 +99,21 @@ FastTimerService::Resources& FastTimerService::Resources::operator+=(Resources c
   return *this;
 }
 
+FastTimerService::Resources& FastTimerService::Resources::operator+=(AtomicResources const& other) {
+  time_thread += boost::chrono::nanoseconds(other.time_thread.load());
+  time_real += boost::chrono::nanoseconds(other.time_real.load());
+  allocated += other.allocated.load();
+  deallocated += other.deallocated.load();
+  return *this;
+}
+
 FastTimerService::Resources FastTimerService::Resources::operator+(Resources const& other) const {
+  Resources result(*this);
+  result += other;
+  return result;
+}
+
+FastTimerService::Resources FastTimerService::Resources::operator+(AtomicResources const& other) const {
   Resources result(*this);
   result += other;
   return result;
@@ -128,10 +156,22 @@ FastTimerService::AtomicResources& FastTimerService::AtomicResources::operator+=
   return *this;
 }
 
+FastTimerService::AtomicResources& FastTimerService::AtomicResources::operator+=(Resources const& other) {
+  time_thread += other.time_thread.count();
+  time_real += other.time_real.count();
+  allocated += other.allocated;
+  deallocated += other.deallocated;
+  return *this;
+}
+
 FastTimerService::AtomicResources FastTimerService::AtomicResources::operator+(AtomicResources const& other) const {
   AtomicResources result(*this);
   result += other;
   return result;
+}
+
+FastTimerService::Resources FastTimerService::AtomicResources::operator+(Resources const& other) const {
+  return other + *this;
 }
 
 // ResourcesPerModule
@@ -331,7 +371,7 @@ void FastTimerService::Measurement::measure_and_accumulate(AtomicResources& stor
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void FastTimerService::PlotsPerElement::book(dqm::reco::DQMStore::ConcurrentBooker& booker,
+void FastTimerService::PlotsPerElement::book(dqm::reco::DQMStore::IBooker& booker,
                                              std::string const& name,
                                              std::string const& title,
                                              PlotRanges const& ranges,
@@ -344,22 +384,22 @@ void FastTimerService::PlotsPerElement::book(dqm::reco::DQMStore::ConcurrentBook
 
   time_thread_ =
       booker.book1D(name + " time_thread", title + " processing time (cpu)", time_bins, 0., ranges.time_range);
-  time_thread_.setXTitle("processing time [ms]");
-  time_thread_.setYTitle(y_title_ms.c_str());
+  time_thread_->setXTitle("processing time [ms]");
+  time_thread_->setYTitle(y_title_ms);
 
   time_real_ = booker.book1D(name + " time_real", title + " processing time (real)", time_bins, 0., ranges.time_range);
-  time_real_.setXTitle("processing time [ms]");
-  time_real_.setYTitle(y_title_ms.c_str());
+  time_real_->setXTitle("processing time [ms]");
+  time_real_->setYTitle(y_title_ms);
 
   if (memory_usage::is_available()) {
     allocated_ = booker.book1D(name + " allocated", title + " allocated memory", mem_bins, 0., ranges.memory_range);
-    allocated_.setXTitle("memory [kB]");
-    allocated_.setYTitle(y_title_kB.c_str());
+    allocated_->setXTitle("memory [kB]");
+    allocated_->setYTitle(y_title_kB);
 
     deallocated_ =
         booker.book1D(name + " deallocated", title + " deallocated memory", mem_bins, 0., ranges.memory_range);
-    deallocated_.setXTitle("memory [kB]");
-    deallocated_.setYTitle(y_title_kB.c_str());
+    deallocated_->setXTitle("memory [kB]");
+    deallocated_->setYTitle(y_title_kB);
   }
 
   if (not byls)
@@ -374,8 +414,8 @@ void FastTimerService::PlotsPerElement::book(dqm::reco::DQMStore::ConcurrentBook
                                          0.,
                                          std::numeric_limits<double>::infinity(),
                                          " ");
-  time_thread_byls_.setXTitle("lumisection");
-  time_thread_byls_.setYTitle("processing time [ms]");
+  time_thread_byls_->setXTitle("lumisection");
+  time_thread_byls_->setYTitle("processing time [ms]");
 
   time_real_byls_ = booker.bookProfile(name + " time_real_byls",
                                        title + " processing time (real) vs. lumisection",
@@ -386,8 +426,8 @@ void FastTimerService::PlotsPerElement::book(dqm::reco::DQMStore::ConcurrentBook
                                        0.,
                                        std::numeric_limits<double>::infinity(),
                                        " ");
-  time_real_byls_.setXTitle("lumisection");
-  time_real_byls_.setYTitle("processing time [ms]");
+  time_real_byls_->setXTitle("lumisection");
+  time_real_byls_->setYTitle("processing time [ms]");
 
   if (memory_usage::is_available()) {
     allocated_byls_ = booker.bookProfile(name + " allocated_byls",
@@ -399,8 +439,8 @@ void FastTimerService::PlotsPerElement::book(dqm::reco::DQMStore::ConcurrentBook
                                          0.,
                                          std::numeric_limits<double>::infinity(),
                                          " ");
-    allocated_byls_.setXTitle("lumisection");
-    allocated_byls_.setYTitle("memory [kB]");
+    allocated_byls_->setXTitle("lumisection");
+    allocated_byls_->setYTitle("memory [kB]");
 
     deallocated_byls_ = booker.bookProfile(name + " deallocated_byls",
                                            title + " deallocated memory vs. lumisection",
@@ -411,8 +451,8 @@ void FastTimerService::PlotsPerElement::book(dqm::reco::DQMStore::ConcurrentBook
                                            0.,
                                            std::numeric_limits<double>::infinity(),
                                            " ");
-    deallocated_byls_.setXTitle("lumisection");
-    deallocated_byls_.setYTitle("memory [kB]");
+    deallocated_byls_->setXTitle("lumisection");
+    deallocated_byls_->setYTitle("memory [kB]");
   }
 }
 
@@ -421,28 +461,28 @@ void FastTimerService::PlotsPerElement::fill(Resources const& data, unsigned int
   TH1::StatOverflows(true);
 
   if (time_thread_)
-    time_thread_.fill(ms(data.time_thread));
+    time_thread_->Fill(ms(data.time_thread));
 
   if (time_thread_byls_)
-    time_thread_byls_.fill(lumisection, ms(data.time_thread));
+    time_thread_byls_->Fill(lumisection, ms(data.time_thread));
 
   if (time_real_)
-    time_real_.fill(ms(data.time_real));
+    time_real_->Fill(ms(data.time_real));
 
   if (time_real_byls_)
-    time_real_byls_.fill(lumisection, ms(data.time_real));
+    time_real_byls_->Fill(lumisection, ms(data.time_real));
 
   if (allocated_)
-    allocated_.fill(kB(data.allocated));
+    allocated_->Fill(kB(data.allocated));
 
   if (allocated_byls_)
-    allocated_byls_.fill(lumisection, kB(data.allocated));
+    allocated_byls_->Fill(lumisection, kB(data.allocated));
 
   if (deallocated_)
-    deallocated_.fill(kB(data.deallocated));
+    deallocated_->Fill(kB(data.deallocated));
 
   if (deallocated_byls_)
-    deallocated_byls_.fill(lumisection, kB(data.deallocated));
+    deallocated_byls_->Fill(lumisection, kB(data.deallocated));
 }
 
 void FastTimerService::PlotsPerElement::fill(AtomicResources const& data, unsigned int lumisection) {
@@ -450,28 +490,28 @@ void FastTimerService::PlotsPerElement::fill(AtomicResources const& data, unsign
   TH1::StatOverflows(true);
 
   if (time_thread_)
-    time_thread_.fill(ms(boost::chrono::nanoseconds(data.time_thread.load())));
+    time_thread_->Fill(ms(boost::chrono::nanoseconds(data.time_thread.load())));
 
   if (time_thread_byls_)
-    time_thread_byls_.fill(lumisection, ms(boost::chrono::nanoseconds(data.time_thread.load())));
+    time_thread_byls_->Fill(lumisection, ms(boost::chrono::nanoseconds(data.time_thread.load())));
 
   if (time_real_)
-    time_real_.fill(ms(boost::chrono::nanoseconds(data.time_real.load())));
+    time_real_->Fill(ms(boost::chrono::nanoseconds(data.time_real.load())));
 
   if (time_real_byls_)
-    time_real_byls_.fill(lumisection, ms(boost::chrono::nanoseconds(data.time_real.load())));
+    time_real_byls_->Fill(lumisection, ms(boost::chrono::nanoseconds(data.time_real.load())));
 
   if (allocated_)
-    allocated_.fill(kB(data.allocated));
+    allocated_->Fill(kB(data.allocated));
 
   if (allocated_byls_)
-    allocated_byls_.fill(lumisection, kB(data.allocated));
+    allocated_byls_->Fill(lumisection, kB(data.allocated));
 
   if (deallocated_)
-    deallocated_.fill(kB(data.deallocated));
+    deallocated_->Fill(kB(data.deallocated));
 
   if (deallocated_byls_)
-    deallocated_byls_.fill(lumisection, kB(data.deallocated));
+    deallocated_byls_->Fill(lumisection, kB(data.deallocated));
 }
 
 void FastTimerService::PlotsPerElement::fill_fraction(Resources const& data,
@@ -486,37 +526,37 @@ void FastTimerService::PlotsPerElement::fill_fraction(Resources const& data,
   total = ms(data.time_thread);
   fraction = (total > 0.) ? (ms(part.time_thread) / total) : 0.;
   if (time_thread_)
-    time_thread_.fill(total, fraction);
+    time_thread_->Fill(total, fraction);
 
   if (time_thread_byls_)
-    time_thread_byls_.fill(lumisection, total, fraction);
+    time_thread_byls_->Fill(lumisection, total, fraction);
 
   total = ms(data.time_real);
   fraction = (total > 0.) ? (ms(part.time_real) / total) : 0.;
   if (time_real_)
-    time_real_.fill(total, fraction);
+    time_real_->Fill(total, fraction);
 
   if (time_real_byls_)
-    time_real_byls_.fill(lumisection, total, fraction);
+    time_real_byls_->Fill(lumisection, total, fraction);
 
   total = kB(data.allocated);
   fraction = (total > 0.) ? (kB(part.allocated) / total) : 0.;
   if (allocated_)
-    allocated_.fill(total, fraction);
+    allocated_->Fill(total, fraction);
 
   if (allocated_byls_)
-    allocated_byls_.fill(lumisection, total, fraction);
+    allocated_byls_->Fill(lumisection, total, fraction);
 
   total = kB(data.deallocated);
   fraction = (total > 0.) ? (kB(part.deallocated) / total) : 0.;
   if (deallocated_)
-    deallocated_.fill(total, fraction);
+    deallocated_->Fill(total, fraction);
 
   if (deallocated_byls_)
-    deallocated_byls_.fill(lumisection, total, fraction);
+    deallocated_byls_->Fill(lumisection, total, fraction);
 }
 
-void FastTimerService::PlotsPerPath::book(dqm::reco::DQMStore::ConcurrentBooker& booker,
+void FastTimerService::PlotsPerPath::book(dqm::reco::DQMStore::IBooker& booker,
                                           std::string const& prefixDir,
                                           ProcessCallGraph const& job,
                                           ProcessCallGraph::PathType const& path,
@@ -531,34 +571,34 @@ void FastTimerService::PlotsPerPath::book(dqm::reco::DQMStore::ConcurrentBooker&
 
   unsigned int bins = path.modules_and_dependencies_.size();
   module_counter_ = booker.book1DD("module_counter", "module counter", bins + 1, -0.5, bins + 0.5);
-  module_counter_.setYTitle("events");
+  module_counter_->setYTitle("events");
   module_time_thread_total_ =
       booker.book1DD("module_time_thread_total", "total module time (cpu)", bins, -0.5, bins - 0.5);
-  module_time_thread_total_.setYTitle("processing time [ms]");
+  module_time_thread_total_->setYTitle("processing time [ms]");
   module_time_real_total_ =
       booker.book1DD("module_time_real_total", "total module time (real)", bins, -0.5, bins - 0.5);
-  module_time_real_total_.setYTitle("processing time [ms]");
+  module_time_real_total_->setYTitle("processing time [ms]");
   if (memory_usage::is_available()) {
     module_allocated_total_ =
         booker.book1DD("module_allocated_total", "total allocated memory", bins, -0.5, bins - 0.5);
-    module_allocated_total_.setYTitle("memory [kB]");
+    module_allocated_total_->setYTitle("memory [kB]");
     module_deallocated_total_ =
         booker.book1DD("module_deallocated_total", "total deallocated memory", bins, -0.5, bins - 0.5);
-    module_deallocated_total_.setYTitle("memory [kB]");
+    module_deallocated_total_->setYTitle("memory [kB]");
   }
   for (unsigned int bin : boost::irange(0u, bins)) {
     auto const& module = job[path.modules_and_dependencies_[bin]];
     std::string const& label =
         module.scheduled_ ? module.module_.moduleLabel() : module.module_.moduleLabel() + " (unscheduled)";
-    module_counter_.setBinLabel(bin + 1, label);
-    module_time_thread_total_.setBinLabel(bin + 1, label);
-    module_time_real_total_.setBinLabel(bin + 1, label);
+    module_counter_->setBinLabel(bin + 1, label);
+    module_time_thread_total_->setBinLabel(bin + 1, label);
+    module_time_real_total_->setBinLabel(bin + 1, label);
     if (memory_usage::is_available()) {
-      module_allocated_total_.setBinLabel(bin + 1, label);
-      module_deallocated_total_.setBinLabel(bin + 1, label);
+      module_allocated_total_->setBinLabel(bin + 1, label);
+      module_deallocated_total_->setBinLabel(bin + 1, label);
     }
   }
-  module_counter_.setBinLabel(bins + 1, "");
+  module_counter_->setBinLabel(bins + 1, "");
 
   booker.setCurrentFolder(basedir);
 }
@@ -574,28 +614,28 @@ void FastTimerService::PlotsPerPath::fill(ProcessCallGraph::PathType const& desc
   for (unsigned int i = 0; i < path.last; ++i) {
     auto const& module = data.modules[description.modules_and_dependencies_[i]];
     if (module_counter_)
-      module_counter_.fill(i);
+      module_counter_->Fill(i);
 
     if (module_time_thread_total_)
-      module_time_thread_total_.fill(i, ms(module.total.time_thread));
+      module_time_thread_total_->Fill(i, ms(module.total.time_thread));
 
     if (module_time_real_total_)
-      module_time_real_total_.fill(i, ms(module.total.time_real));
+      module_time_real_total_->Fill(i, ms(module.total.time_real));
 
     if (module_allocated_total_)
-      module_allocated_total_.fill(i, kB(module.total.allocated));
+      module_allocated_total_->Fill(i, kB(module.total.allocated));
 
     if (module_deallocated_total_)
-      module_deallocated_total_.fill(i, kB(module.total.deallocated));
+      module_deallocated_total_->Fill(i, kB(module.total.deallocated));
   }
   if (module_counter_ and path.status)
-    module_counter_.fill(path.last);
+    module_counter_->Fill(path.last);
 }
 
 FastTimerService::PlotsPerProcess::PlotsPerProcess(ProcessCallGraph::ProcessType const& process)
     : event_(), paths_(process.paths_.size()), endpaths_(process.endPaths_.size()) {}
 
-void FastTimerService::PlotsPerProcess::book(dqm::reco::DQMStore::ConcurrentBooker& booker,
+void FastTimerService::PlotsPerProcess::book(dqm::reco::DQMStore::IBooker& booker,
                                              ProcessCallGraph const& job,
                                              ProcessCallGraph::ProcessType const& process,
                                              PlotRanges const& event_ranges,
@@ -640,7 +680,7 @@ FastTimerService::PlotsPerJob::PlotsPerJob(ProcessCallGraph const& job, std::vec
     processes_.emplace_back(process);
 }
 
-void FastTimerService::PlotsPerJob::book(dqm::reco::DQMStore::ConcurrentBooker& booker,
+void FastTimerService::PlotsPerJob::book(dqm::reco::DQMStore::IBooker& booker,
                                          ProcessCallGraph const& job,
                                          std::vector<GroupOfModules> const& groups,
                                          PlotRanges const& event_ranges,
@@ -731,7 +771,13 @@ FastTimerService::FastTimerService(const edm::ParameterSet& config, edm::Activit
       print_event_summary_(config.getUntrackedParameter<bool>("printEventSummary")),
       print_run_summary_(config.getUntrackedParameter<bool>("printRunSummary")),
       print_job_summary_(config.getUntrackedParameter<bool>("printJobSummary")),
-      // dqm configuration
+      // JSON configuration
+      //write_json_per_event_(config.getUntrackedParameter<bool>("writeJSONByEvent")),
+      //write_json_per_ls_(config.getUntrackedParameter<bool>("writeJSONByLumiSection")),
+      //write_json_per_run_(config.getUntrackedParameter<bool>("writeJSONByRun")),
+      write_json_summary_(config.getUntrackedParameter<bool>("writeJSONSummary")),
+      json_filename_(config.getUntrackedParameter<std::string>("jsonFileName")),
+      // DQM configuration
       enable_dqm_(config.getUntrackedParameter<bool>("enableDQM")),
       enable_dqm_bymodule_(config.getUntrackedParameter<bool>("enableDQMbyModule")),
       enable_dqm_bypath_(config.getUntrackedParameter<bool>("enableDQMbyPath")),
@@ -856,7 +902,11 @@ void FastTimerService::preGlobalBeginRun(edm::GlobalContext const& gc) {
     // book the DQM plots
     if (enable_dqm_) {
       // define a callback to book the MonitorElements
-      auto bookTransactionCallback = [&, this](dqm::reco::DQMStore::ConcurrentBooker& booker) {
+      auto bookTransactionCallback = [&, this](dqm::reco::DQMStore::IBooker& booker, dqm::reco::DQMStore::IGetter&) {
+        auto scope = dqm::reco::DQMStore::IBooker::UseRunScope(booker);
+        // we should really do this, but only DQMStore is allowed to touch it
+        // We could move to postGlobalBeginRun, then the DQMStore has sure set it up.
+        //booker.setRunLumi(gc.luminosityBlockID());
         booker.setCurrentFolder(dqm_path_);
         plots_->book(booker,
                      callgraph_,
@@ -872,8 +922,7 @@ void FastTimerService::preGlobalBeginRun(edm::GlobalContext const& gc) {
       };
 
       // book MonitorElements for this stream
-      edm::Service<dqm::legacy::DQMStore>()->bookConcurrentTransaction(bookTransactionCallback,
-                                                                       gc.luminosityBlockID().run());
+      edm::Service<dqm::legacy::DQMStore>()->meBookerGetter(bookTransactionCallback);
     }
   }
 }
@@ -955,7 +1004,7 @@ void FastTimerService::postBeginJob() {
   if (enable_dqm_ and not edm::Service<dqm::legacy::DQMStore>().isAvailable()) {
     // the DQMStore is not available, disable all DQM plots
     enable_dqm_ = false;
-    // FIXME issue a LogWarning ?
+    edm::LogWarning("FastTimerService") << "The DQMStore is not avalable, the DQM plots will not be generated";
   }
 
   // allocate the structures to hold pointers to the DQM plots
@@ -1050,6 +1099,9 @@ void FastTimerService::postEndJob() {
   if (print_job_summary_) {
     edm::LogVerbatim out("FastReport");
     printSummary(out, job_summary_, "Job");
+  }
+  if (write_json_summary_) {
+    writeSummaryJSON(job_summary_, json_filename_);
   }
 }
 
@@ -1172,6 +1224,32 @@ void FastTimerService::printSummaryLine(T& out, Resources const& data, uint64_t 
 
 template <typename T>
 void FastTimerService::printSummaryLine(
+    T& out, AtomicResources const& data, uint64_t events, uint64_t active, std::string const& label) const {
+  out << boost::format(
+             "FastReport  %10.1f ms  %10.1f ms  %10.1f ms  %10.1f ms  %+10d kB  %+10d kB  %+10d kB  %+10d kB  %s\n") %
+             (events ? ms(data.time_thread) / events : 0) % (active ? ms(data.time_thread) / active : 0) %
+             (events ? ms(data.time_real) / events : 0) % (active ? ms(data.time_real) / active : 0) %
+             (events ? +static_cast<int64_t>(kB(data.allocated) / events) : 0) %
+             (active ? +static_cast<int64_t>(kB(data.allocated) / active) : 0) %
+             (events ? -static_cast<int64_t>(kB(data.deallocated) / events) : 0) %
+             (active ? -static_cast<int64_t>(kB(data.deallocated) / active) : 0) % label;
+}
+
+template <typename T>
+void FastTimerService::printSummaryLine(T& out,
+                                        AtomicResources const& data,
+                                        uint64_t events,
+                                        std::string const& label) const {
+  out << boost::format(
+             "FastReport  %10.1f ms                 %10.1f ms                 %+10d kB                 %+10d kB        "
+             "         %s\n") %
+             (events ? ms(data.time_thread) / events : 0) % (events ? ms(data.time_real) / events : 0) %
+             (events ? +static_cast<int64_t>(kB(data.allocated) / events) : 0) %
+             (events ? -static_cast<int64_t>(kB(data.deallocated) / events) : 0) % label;
+}
+
+template <typename T>
+void FastTimerService::printSummaryLine(
     T& out, Resources const& data, uint64_t events, uint64_t active, std::string const& label) const {
   out << boost::format(
              "FastReport  %10.1f ms  %10.1f ms  %10.1f ms  %10.1f ms  %+10d kB  %+10d kB  %+10d kB  %+10d kB  %s\n") %
@@ -1214,6 +1292,7 @@ void FastTimerService::printSummary(T& out, ResourcesPerJob const& data, std::st
     }
   }
   printSummaryLine(out, data.total, data.events, "total");
+  printSummaryLine(out, data.overhead, data.events, "other");
   out << '\n';
   printPathSummaryHeader(out, "Processes and Paths");
   printSummaryLine(out, source.total, data.events, source_d.moduleLabel());
@@ -1233,6 +1312,7 @@ void FastTimerService::printSummary(T& out, ResourcesPerJob const& data, std::st
     }
   }
   printSummaryLine(out, data.total, data.events, "total");
+  printSummaryLine(out, data.overhead, data.events, "other");
   out << '\n';
   for (unsigned int group : boost::irange(0ul, highlight_modules_.size())) {
     printSummaryHeader(out, "Highlighted modules", true);
@@ -1250,6 +1330,51 @@ template <typename T>
 void FastTimerService::printTransition(T& out, AtomicResources const& data, std::string const& label) const {
   printEventHeader(out, "Transition");
   printEventLine(out, data, label);
+}
+
+template <typename T>
+json FastTimerService::encodeToJSON(std::string const& type,
+                                    std::string const& label,
+                                    unsigned int events,
+                                    T const& data) const {
+  return json{{"type", type},
+              {"label", label},
+              {"events", events},
+              {"time_thread", ms(data.time_thread)},
+              {"time_real", ms(data.time_real)},
+              {"mem_alloc", kB(data.allocated)},
+              {"mem_free", kB(data.deallocated)}};
+}
+
+json FastTimerService::encodeToJSON(edm::ModuleDescription const& module, ResourcesPerModule const& data) const {
+  return encodeToJSON(module.moduleName(), module.moduleLabel(), data.events, data.total);
+}
+
+void FastTimerService::writeSummaryJSON(ResourcesPerJob const& data, std::string const& filename) const {
+  json j;
+
+  // write a description of the resources
+  j["resources"] = json::array({json{{"time_real", "real time"}},
+                                json{{"time_thread", "cpu time"}},
+                                json{{"mem_alloc", "allocated memory"}},
+                                json{{"mem_free", "deallocated memory"}}});
+
+  // write the resources used by the job
+  j["total"] = encodeToJSON("Job", callgraph_.processDescription(0).name_, data.events, data.total + data.overhead);
+
+  // write the resources used by every module
+  j["modules"] = json::array();
+  for (unsigned int i = 0; i < callgraph_.size(); ++i) {
+    auto const& module = callgraph_.module(i);
+    auto const& data_m = data.modules[i];
+    j["modules"].push_back(encodeToJSON(module, data_m));
+  }
+
+  // add an entry for the "overhead"
+  j["modules"].push_back(encodeToJSON("other", "other", data.events, data.overhead));
+
+  std::ofstream out(filename);
+  out << std::setw(2) << j << std::flush;
 }
 
 // check if this is the first process being signalled
@@ -1281,8 +1406,8 @@ void FastTimerService::postEvent(edm::StreamContext const& sc) {
 
   // measure the event resources as the sum of all modules' resources
   auto& data = stream.processes[pid].total;
-  for (unsigned int i : process.modules_)
-    data += stream.modules[i].total;
+  for (unsigned int id : process.modules_)
+    data += stream.modules[id].total;
   stream.total += data;
 
   // handle the summaries and fill the plots only after the last subprocess has run
@@ -1292,6 +1417,10 @@ void FastTimerService::postEvent(edm::StreamContext const& sc) {
 
   // measure the event resources explicitly
   stream.event_measurement.measure_and_store(stream.event);
+
+  // add to the event resources those used by source (which is not part of any process)
+  unsigned int id = 0;
+  stream.total += stream.modules[id].total;
 
   // highlighted modules
   for (unsigned int group : boost::irange(0ul, highlight_modules_.size()))
@@ -1333,8 +1462,9 @@ void FastTimerService::postSourceEvent(edm::StreamID sid) {
   edm::ModuleDescription const& md = callgraph_.source();
   unsigned int id = md.id();
   auto& stream = streams_[sid];
+  auto& module = stream.modules[id];
 
-  thread().measure_and_store(stream.modules[id].total);
+  thread().measure_and_store(module.total);
   ++stream.modules[id].events;
 }
 
@@ -1524,6 +1654,13 @@ void FastTimerService::fillDescriptions(edm::ConfigurationDescriptions& descript
   desc.addUntracked<bool>("printEventSummary", false);
   desc.addUntracked<bool>("printRunSummary", true);
   desc.addUntracked<bool>("printJobSummary", true);
+  // JSON configuration
+  //desc.addUntracked<bool>("writeJSONByEvent", false);
+  //desc.addUntracked<bool>("writeJSONByLumiSection", false);
+  //desc.addUntracked<bool>("writeJSONByRun", false);
+  desc.addUntracked<bool>("writeJSONSummary", false);
+  desc.addUntracked<std::string>("jsonFileName", "resources.json");
+  // DQM configuration
   desc.addUntracked<bool>("enableDQM", true);
   desc.addUntracked<bool>("enableDQMbyModule", false);
   desc.addUntracked<bool>("enableDQMbyPath", false);

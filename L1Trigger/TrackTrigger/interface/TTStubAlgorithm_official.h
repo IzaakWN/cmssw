@@ -25,7 +25,7 @@
 
 #include "DataFormats/GeometryCommonDetAlgo/interface/MeasurementPoint.h"
 #include "Geometry/CommonTopologies/interface/Topology.h"
-#include "Geometry/TrackerGeometryBuilder/interface/PixelGeomDetUnit.h"
+#include "Geometry/CommonDetUnit/interface/PixelGeomDetUnit.h"
 #include "Geometry/CommonTopologies/interface/PixelTopology.h"
 
 #include <memory>
@@ -73,7 +73,6 @@ public:
   void PatternHitCorrelation(bool &aConfirmation,
                              int &aDisplacement,
                              int &anOffset,
-                             float &anROffset,
                              float &anHardBend,
                              const TTStub<T> &aTTStub) const override;
 
@@ -94,7 +93,6 @@ void TTStubAlgorithm_official<Ref_Phase2TrackerDigi_>::PatternHitCorrelation(
     bool &aConfirmation,
     int &aDisplacement,
     int &anOffset,
-    float &anROffset,
     float &anHardBend,
     const TTStub<Ref_Phase2TrackerDigi_> &aTTStub) const;
 

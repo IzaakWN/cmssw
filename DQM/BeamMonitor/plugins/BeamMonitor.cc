@@ -15,7 +15,6 @@ V00-03-25
 */
 
 #include "DQM/BeamMonitor/plugins/BeamMonitor.h"
-#include "DQMServices/Core/interface/QReport.h"
 #include "DQMServices/Core/interface/DQMStore.h"
 #include "FWCore/ServiceRegistry/interface/Service.h"
 #include "DataFormats/TrackCandidate/interface/TrackCandidate.h"
@@ -243,7 +242,7 @@ void BeamMonitor::bookHistograms(DQMStore::IBooker& iBooker, edm::Run const& iRu
 
   h_vx_vy = iBooker.book2D(
       "trk_vx_vy", "Vertex (PCA) position of selected tracks", vxBin_, vxMin_, vxMax_, vxBin_, vxMin_, vxMax_);
-  h_vx_vy->getTH2F()->SetOption("COLZ");
+  h_vx_vy->setOption("COLZ");
   //   h_vx_vy->getTH1()->SetCanExtend(TH1::kAllAxes);
   h_vx_vy->setAxisTitle("x coordinate of input track at PCA (cm)", 1);
   h_vx_vy->setAxisTitle("y coordinate of input track at PCA (cm)", 2);
@@ -1023,7 +1022,6 @@ void BeamMonitor::FitAndFill(const LuminosityBlock& lumiSeg, int& lastlumi, int&
         auto tmphisto = h_PVy[0]->getTH1F();
         h_PVy[1]->getTH1()->SetBins(
             tmphisto->GetNbinsX(), tmphisto->GetXaxis()->GetXmin(), tmphisto->GetXaxis()->GetXmax());
-        h_PVy[1]->update();
         h_PVy[1]->Reset();
         h_PVy[1]->getTH1()->Add(tmphisto);
         h_PVy[1]->getTH1()->Fit(fgaus.get(), "QLM");
@@ -1054,7 +1052,6 @@ void BeamMonitor::FitAndFill(const LuminosityBlock& lumiSeg, int& lastlumi, int&
         auto tmphisto = h_PVz[0]->getTH1F();
         h_PVz[1]->getTH1()->SetBins(
             tmphisto->GetNbinsX(), tmphisto->GetXaxis()->GetXmin(), tmphisto->GetXaxis()->GetXmax());
-        h_PVz[1]->update();
         h_PVz[1]->Reset();
         h_PVz[1]->getTH1()->Add(tmphisto);
         h_PVz[1]->getTH1()->Fit(fgaus.get(), "QLM");
@@ -1435,9 +1432,9 @@ void BeamMonitor::RestartFitting() {
 }
 
 //-------------------------------------------------------
-void BeamMonitor::endRun(const Run& r, const EventSetup& context) {
+void BeamMonitor::dqmEndRun(const Run& r, const EventSetup& context) {
   if (debug_)
-    edm::LogInfo("BeamMonitor") << "endRun:: Clearing all the Maps " << endl;
+    edm::LogInfo("BeamMonitor") << "dqmEndRun:: Clearing all the Maps " << endl;
   //Clear all the Maps here
   mapPVx.clear();
   mapPVy.clear();

@@ -32,6 +32,7 @@
 #include "FWCore/Utilities/interface/ExceptionCollector.h"
 #include "FWCore/Utilities/interface/RandomNumberGenerator.h"
 #include "FWCore/Utilities/interface/TypeID.h"
+#include "FWCore/Utilities/interface/thread_safety_macros.h"
 
 #include <algorithm>
 #include <cassert>
@@ -79,7 +80,8 @@ namespace edm {
       areg->preModuleConstructionSignal_(md);
       bool postCalled = false;
       std::shared_ptr<TriggerResultInserter> returnValue;
-      try {
+      // Caught exception is rethrown
+      CMS_SA_ALLOW try {
         maker::ModuleHolderT<TriggerResultInserter> holder(
             make_shared_noexcept_false<TriggerResultInserter>(*trig_pset, iPrealloc.numberOfStreams()),
             static_cast<Maker const*>(nullptr));
@@ -91,9 +93,7 @@ namespace edm {
         areg->postModuleConstructionSignal_(md);
       } catch (...) {
         if (!postCalled) {
-          try {
-            areg->postModuleConstructionSignal_(md);
-          } catch (...) {
+          CMS_SA_ALLOW try { areg->postModuleConstructionSignal_(md); } catch (...) {
             // If post throws an exception ignore it because we are already handling another exception
           }
         }
@@ -123,8 +123,8 @@ namespace edm {
 
         areg->preModuleConstructionSignal_(md);
         bool postCalled = false;
-
-        try {
+        // Caught exception is rethrown
+        CMS_SA_ALLOW try {
           maker::ModuleHolderT<T> holder(make_shared_noexcept_false<T>(iPrealloc.numberOfStreams()),
                                          static_cast<Maker const*>(nullptr));
           holder.setModuleDescription(md);
@@ -135,9 +135,7 @@ namespace edm {
           areg->postModuleConstructionSignal_(md);
         } catch (...) {
           if (!postCalled) {
-            try {
-              areg->postModuleConstructionSignal_(md);
-            } catch (...) {
+            CMS_SA_ALLOW try { areg->postModuleConstructionSignal_(md); } catch (...) {
               // If post throws an exception ignore it because we are already handling another exception
             }
           }
@@ -322,18 +320,20 @@ namespace edm {
             it = inserted.first;
           }
 
-          for (auto const& item : preg.productList()) {
-            if (item.second.branchType() == prod.second.branchType() and
-                item.second.unwrappedTypeID().typeInfo() == prod.second.unwrappedTypeID().typeInfo() and
-                item.first.moduleLabel() == prod.second.switchAliasModuleLabel() and
-                item.first.productInstanceName() == prod.second.productInstanceName()) {
-              if (item.first.processName() != processName) {
+          for (auto const& productIter : preg.productList()) {
+            BranchKey const& branchKey = productIter.first;
+            BranchDescription const& desc = productIter.second;
+            if (desc.branchType() == prod.second.branchType() and
+                desc.unwrappedTypeID().typeInfo() == prod.second.unwrappedTypeID().typeInfo() and
+                branchKey.moduleLabel() == prod.second.switchAliasModuleLabel() and
+                branchKey.productInstanceName() == prod.second.productInstanceName()) {
+              if (branchKey.processName() != processName) {
                 throw Exception(errors::LogicError)
                     << "Encountered a BranchDescription that is aliased-for by SwitchProducer, and whose processName "
-                    << item.first.processName() << " differs from current process " << processName
-                    << ". Module label is " << item.first.moduleLabel() << ".\nPlease contact a framework developer.";
+                    << branchKey.processName() << " differs from current process " << processName
+                    << ". Module label is " << branchKey.moduleLabel() << ".\nPlease contact a framework developer.";
               }
-              prod.second.setSwitchAliasForBranch(item.second);
+              prod.second.setSwitchAliasForBranch(desc);
               it->second.chosenBranches.push_back(prod.first);  // with moduleLabel of the Switch
             }
           }
@@ -392,8 +392,8 @@ namespace edm {
                           << "SwitchProducer does not support ROOT branch aliases. Got the following ROOT branch "
                              "aliases for SwitchProducer with label "
                           << switchLabel << " for case " << caseLabel << ":";
-                for (auto const& item : bd.branchAliases()) {
-                  ex << " " << item;
+                for (auto const& branchAlias : bd.branchAliases()) {
+                  ex << " " << branchAlias;
                 }
                 throw ex;
               }
@@ -1134,8 +1134,37 @@ namespace edm {
                                ProcessContext const* processContext,
                                ActivityRegistry* activityRegistry,
                                MergeableRunProductMetadata const* mergeableRunProductMetadata) {
+    auto token = ServiceRegistry::instance().presentToken();
+    GlobalContext globalContext(GlobalContext::Transition::kWriteRun,
+                                LuminosityBlockID(rp.run(), 0),
+                                rp.index(),
+                                LuminosityBlockIndex::invalidLuminosityBlockIndex(),
+                                rp.endTime(),
+                                processContext);
+    auto t =
+        make_waiting_task(tbb::task::allocate_root(),
+                          [task, activityRegistry, globalContext, token](std::exception_ptr const* iExcept) mutable {
+                            // Propagating the exception would be nontrivial, and signal actions are not supposed to throw exceptions
+                            CMS_SA_ALLOW try {
+                              //services can depend on other services
+                              ServiceRegistry::Operate op(token);
+
+                              activityRegistry->postGlobalWriteRunSignal_(globalContext);
+                            } catch (...) {
+                            }
+                            std::exception_ptr ptr;
+                            if (iExcept) {
+                              ptr = *iExcept;
+                            }
+                            task.doneWaiting(ptr);
+                          });
+    // Propagating the exception would be nontrivial, and signal actions are not supposed to throw exceptions
+    CMS_SA_ALLOW try { activityRegistry->preGlobalWriteRunSignal_(globalContext); } catch (...) {
+    }
+    WaitingTaskHolder tHolder(t);
+
     for (auto& c : all_output_communicators_) {
-      c->writeRunAsync(task, rp, processContext, activityRegistry, mergeableRunProductMetadata);
+      c->writeRunAsync(tHolder, rp, processContext, activityRegistry, mergeableRunProductMetadata);
     }
   }
 
@@ -1143,8 +1172,37 @@ namespace edm {
                                 LuminosityBlockPrincipal const& lbp,
                                 ProcessContext const* processContext,
                                 ActivityRegistry* activityRegistry) {
+    auto token = ServiceRegistry::instance().presentToken();
+    GlobalContext globalContext(GlobalContext::Transition::kWriteLuminosityBlock,
+                                lbp.id(),
+                                lbp.runPrincipal().index(),
+                                lbp.index(),
+                                lbp.beginTime(),
+                                processContext);
+
+    auto t =
+        make_waiting_task(tbb::task::allocate_root(),
+                          [task, activityRegistry, globalContext, token](std::exception_ptr const* iExcept) mutable {
+                            // Propagating the exception would be nontrivial, and signal actions are not supposed to throw exceptions
+                            CMS_SA_ALLOW try {
+                              //services can depend on other services
+                              ServiceRegistry::Operate op(token);
+
+                              activityRegistry->postGlobalWriteLumiSignal_(globalContext);
+                            } catch (...) {
+                            }
+                            std::exception_ptr ptr;
+                            if (iExcept) {
+                              ptr = *iExcept;
+                            }
+                            task.doneWaiting(ptr);
+                          });
+    // Propagating the exception would be nontrivial, and signal actions are not supposed to throw exceptions
+    CMS_SA_ALLOW try { activityRegistry->preGlobalWriteLumiSignal_(globalContext); } catch (...) {
+    }
+    WaitingTaskHolder tHolder(t);
     for (auto& c : all_output_communicators_) {
-      c->writeLumiAsync(task, lbp, processContext, activityRegistry);
+      c->writeLumiAsync(tHolder, lbp, processContext, activityRegistry);
     }
   }
 

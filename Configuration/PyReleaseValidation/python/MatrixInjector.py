@@ -225,6 +225,23 @@ class MatrixInjector(object):
             wmsplit['RECODR2_2018reHLT_skimCharmonium_Prompt']=1
             wmsplit['RECODR2_2018reHLT_skimJetHT_Prompt_HEfail']=1
             wmsplit['RECODR2_2018reHLT_skimJetHT_Prompt_BadHcalMitig']=1
+            wmsplit['RECODR2_2018reHLTAlCaTkCosmics_Prompt']=1
+            wmsplit['RECODR2_2018reHLT_skimDisplacedJet_Prompt']=1
+            wmsplit['RECODR2_2018reHLT_ZBPrompt']=1
+            wmsplit['RECODR2_2018reHLT_Offline']=1
+            wmsplit['RECODR2_2018reHLT_skimSingleMu_Offline_Lumi']=1
+            wmsplit['RECODR2_2018reHLT_skimDoubleEG_Offline']=1
+            wmsplit['RECODR2_2018reHLT_skimJetHT_Offline']=1
+            wmsplit['RECODR2_2018reHLT_skimMET_Offline']=1
+            wmsplit['RECODR2_2018reHLT_skimMuOnia_Offline']=1
+            wmsplit['RECODR2_2018reHLT_skimEGamma_Offline_L1TEgDQM']=1
+            wmsplit['RECODR2_2018reHLT_skimMuonEG_Offline']=1
+            wmsplit['RECODR2_2018reHLT_skimCharmonium_Offline']=1
+            wmsplit['RECODR2_2018reHLT_skimJetHT_Offline_HEfail']=1
+            wmsplit['RECODR2_2018reHLT_skimJetHT_Offline_BadHcalMitig']=1
+            wmsplit['RECODR2_2018reHLTAlCaTkCosmics_Offline']=1
+            wmsplit['RECODR2_2018reHLT_skimDisplacedJet_Offline']=1
+            wmsplit['RECODR2_2018reHLT_ZBOffline']=1
             wmsplit['HLTDR2_50ns']=1
             wmsplit['HLTDR2_25ns']=1
             wmsplit['HLTDR2_2016']=1
@@ -259,7 +276,31 @@ class MatrixInjector(object):
             wmsplit['HYBRIDZSHI2015']=1
             wmsplit['RECOHID15']=1
             wmsplit['RECOHID18']=1
-                                    
+            wmsplit['DigiFullTriggerPU_2026D35PU'] = 1
+            wmsplit['RecoFullGlobalPU_2026D35PU']=1
+            wmsplit['DigiFullTriggerPU_2026D41PU'] = 1
+            wmsplit['RecoFullGlobalPU_2026D41PU']=1
+            wmsplit['DigiFullTriggerPU_2026D43PU'] = 1
+            wmsplit['RecoFullGlobalPU_2026D43PU']=1
+            wmsplit['DigiFullTriggerPU_2026D44PU'] = 1
+            wmsplit['RecoFullGlobalPU_2026D44PU']=1
+            wmsplit['DigiFullTriggerPU_2026D45PU'] = 1
+            wmsplit['RecoFullGlobalPU_2026D45PU']=1
+            wmsplit['DigiFullTriggerPU_2026D46PU'] = 1
+            wmsplit['RecoFullGlobalPU_2026D46PU']=1
+            wmsplit['DigiFullTriggerPU_2026D47PU'] = 1
+            wmsplit['RecoFullGlobalPU_2026D47PU']=1
+            wmsplit['DigiFullTriggerPU_2026D48PU'] = 1
+            wmsplit['RecoFullGlobalPU_2026D48PU']=1
+            wmsplit['DigiFullTriggerPU_2026D49PU'] = 1
+            wmsplit['RecoFullGlobalPU_2026D49PU']=1
+            wmsplit['DigiFullTriggerPU_2026D50PU'] = 1
+            wmsplit['RecoFullGlobalPU_2026D50PU']=1
+            wmsplit['DigiFullTriggerPU_2026D51PU'] = 1
+            wmsplit['RecoFullGlobalPU_2026D51PU']=1
+            wmsplit['DigiFullTriggerPU_2026D52PU'] = 1	
+            wmsplit['RecoFullGlobalPU_2026D52PU']=1           
+                         
             #import pprint
             #pprint.pprint(wmsplit)            
         except:

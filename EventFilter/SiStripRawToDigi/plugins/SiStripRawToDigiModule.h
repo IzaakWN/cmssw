@@ -6,8 +6,9 @@
 #include "FWCore/Framework/interface/EventSetup.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "DataFormats/FEDRawData/interface/FEDRawDataCollection.h"
-#include "boost/cstdint.hpp"
+#include "FWCore/Utilities/interface/Visibility.h"
 #include <string>
+#include <cstdint>
 
 namespace sistrip {
   class RawToDigiModule;

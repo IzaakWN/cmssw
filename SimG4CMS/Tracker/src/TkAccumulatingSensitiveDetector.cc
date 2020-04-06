@@ -18,7 +18,6 @@
 
 #include "Geometry/Records/interface/IdealGeometryRecord.h"
 #include "Geometry/TrackerNumberingBuilder/interface/GeometricDet.h"
-#include "DetectorDescription/Core/interface/DDCompactView.h"
 
 #include "SimG4Core/Notification/interface/TrackInformation.h"
 #include "SimG4Core/Notification/interface/G4TrackToParticleID.h"
@@ -37,8 +36,8 @@
 
 //#define FAKEFRAMEROTATION
 
-static TrackerG4SimHitNumberingScheme& numberingScheme(const DDCompactView& cpv, const GeometricDet& det) {
-  static thread_local TrackerG4SimHitNumberingScheme s_scheme(cpv, det);
+static TrackerG4SimHitNumberingScheme& numberingScheme(const GeometricDet& det) {
+  static thread_local TrackerG4SimHitNumberingScheme s_scheme(det);
   return s_scheme;
 }
 
@@ -81,7 +80,7 @@ TkAccumulatingSensitiveDetector::TkAccumulatingSensitiveDetector(const std::stri
   rotType = "FakeFrameRotation";
 #endif
 
-  edm::LogInfo("TrackerSimInfo") << " TkAccumulatingSensitiveDetector: "
+  edm::LogVerbatim("TrackerSim") << " TkAccumulatingSensitiveDetector: "
                                  << " Criteria for Saving Tracker SimTracks: \n"
                                  << " History: " << energyHistoryCut << " MeV; Persistency: " << energyCut
                                  << " MeV;  TofLimit: " << theTofLimit << " ns"
@@ -131,9 +130,9 @@ void TkAccumulatingSensitiveDetector::update(const BeginOfTrack* bot) {
 
 #ifdef DUMPPROCESSES
   if (gTrack->GetCreatorProcess()) {
-    edm::LogVerbatim("TrackerSimInfo") << " -> PROCESS CREATOR : " << gTrack->GetCreatorProcess()->GetProcessName();
+    edm::LogVerbatim("TrackerSim") << " -> PROCESS CREATOR : " << gTrack->GetCreatorProcess()->GetProcessName();
   } else {
-    edm::LogVerbatim("TrackerSimInfo") << " -> No Creator process";
+    edm::LogVerbatim("TrackerSim") << " -> No Creator process";
   }
 #endif
 
@@ -357,10 +356,7 @@ void TkAccumulatingSensitiveDetector::update(const BeginOfJob* i) {
   const edm::EventSetup* es = (*i)();
   es->get<IdealGeometryRecord>().get(pDD);
 
-  edm::ESTransientHandle<DDCompactView> pView;
-  es->get<IdealGeometryRecord>().get(pView);
-
-  theNumberingScheme = &(numberingScheme(*pView, *pDD));
+  theNumberingScheme = &(numberingScheme(*pDD));
 }
 
 void TkAccumulatingSensitiveDetector::clearHits() {

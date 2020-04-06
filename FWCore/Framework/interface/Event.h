@@ -33,6 +33,7 @@ For its usage, see "FWCore/Framework/interface/PrincipalGetAdapter.h"
 #include "FWCore/Common/interface/EventBase.h"
 #include "FWCore/Framework/interface/Frameworkfwd.h"
 #include "FWCore/Framework/interface/PrincipalGetAdapter.h"
+#include "FWCore/Framework/interface/LuminosityBlock.h"
 #include "FWCore/Utilities/interface/TypeID.h"
 #include "FWCore/Utilities/interface/EDGetToken.h"
 #include "FWCore/Utilities/interface/EDPutToken.h"
@@ -40,6 +41,7 @@ For its usage, see "FWCore/Framework/interface/PrincipalGetAdapter.h"
 #include "FWCore/Utilities/interface/StreamID.h"
 #include "FWCore/Utilities/interface/propagate_const.h"
 #include "FWCore/Utilities/interface/Likely.h"
+#include "FWCore/Utilities/interface/thread_safety_macros.h"
 
 #include <memory>
 #include <string>
@@ -94,7 +96,12 @@ namespace edm {
     ///\return The id for the particular Stream processing the Event
     StreamID streamID() const { return streamID_; }
 
-    LuminosityBlock const& getLuminosityBlock() const { return *luminosityBlock_; }
+    LuminosityBlock const& getLuminosityBlock() const {
+      if (not luminosityBlock_) {
+        fillLuminosityBlock();
+      }
+      return *luminosityBlock_;
+    }
 
     Run const& getRun() const;
 
@@ -255,6 +262,8 @@ namespace edm {
 
     EventPrincipal const& eventPrincipal() const;
 
+    void fillLuminosityBlock() const;
+
     ProductID makeProductID(BranchDescription const& desc) const;
 
     //override used by EventBase class
@@ -298,15 +307,17 @@ namespace edm {
     ProductPtrVec putProducts_;
 
     EventAuxiliary const& aux_;
-    std::shared_ptr<LuminosityBlock const> const luminosityBlock_;
+    // measurable performance gain by only creating LuminosityBlock when needed
+    // mutables are allowed in this case because edm::Event is only accessed by one thread
+    CMS_SA_ALLOW mutable std::optional<LuminosityBlock> luminosityBlock_;
 
     // gotBranchIDs_ must be mutable because it records all 'gets',
     // which do not logically modify the PrincipalGetAdapter. gotBranchIDs_ is
     // merely a cache reflecting what has been retrieved from the
     // Principal class.
     typedef std::unordered_set<BranchID::value_type> BranchIDSet;
-    mutable BranchIDSet gotBranchIDs_;
-    mutable std::vector<bool> gotBranchIDsFromPrevious_;
+    CMS_SA_ALLOW mutable BranchIDSet gotBranchIDs_;
+    CMS_SA_ALLOW mutable std::vector<bool> gotBranchIDsFromPrevious_;
     std::vector<BranchID>* previousBranchIDs_ = nullptr;
     std::vector<BranchID>* gotBranchIDsFromAcquire_ = nullptr;
 
@@ -314,7 +325,7 @@ namespace edm {
     void addToGotBranchIDs(BranchID const& branchID) const;
 
     // We own the retrieved Views, and have to destroy them.
-    mutable std::vector<std::shared_ptr<ViewBase>> gotViews_;
+    CMS_SA_ALLOW mutable std::vector<std::shared_ptr<ViewBase>> gotViews_;
 
     StreamID streamID_;
     ModuleCallingContext const* moduleCallingContext_;
@@ -382,7 +393,7 @@ namespace edm {
 
   template <typename PROD>
   OrphanHandle<PROD> Event::put(EDPutTokenT<PROD> token, std::unique_ptr<PROD> product) {
-    if (UNLIKELY(product.get() == 0)) {  // null pointer is illegal
+    if (UNLIKELY(product.get() == nullptr)) {  // null pointer is illegal
       TypeID typeID(typeid(PROD));
       principal_get_adapter_detail::throwOnPutOfNullProduct("Event", typeID, provRecorder_.productInstanceLabel(token));
     }

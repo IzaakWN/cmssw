@@ -71,11 +71,10 @@ namespace FitterFuncs {
   void PulseShapeFunctor::funcShape(std::array<double, HcalConst::maxSamples> &ntmpbin,
                                     const double pulseTime,
                                     const double pulseHeight,
-                                    const double slew) {
+                                    const double slew,
+                                    bool scalePulse) {
     // pulse shape components over a range of time 0 ns to 255 ns in 1 ns steps
     constexpr int ns_per_bx = HcalConst::nsPerBX;
-    constexpr int num_ns = HcalConst::nsPerBX * HcalConst::maxSamples;
-    constexpr int num_bx = num_ns / ns_per_bx;
     //Get the starting time
     int i_start = (-HcalConst::iniTimeShift - pulseTime - slew > 0
                        ? 0
@@ -96,7 +95,7 @@ namespace FitterFuncs {
       const int bin_start = (int)offset_start;                                               //bin off to integer
       const int bin_0_start = (offset_start < bin_start + 0.5 ? bin_start - 1 : bin_start);  //Round it
       const int iTS_start = i_start / ns_per_bx;                                             //Time Slice for time shift
-      const int distTo25ns_start = HcalConst::nsPerBX - 1 - i_start % ns_per_bx;             //Delta ns
+      const int distTo25ns_start = ns_per_bx - 1 - i_start % ns_per_bx;                      //Delta ns
       const double factor = offset_start - bin_0_start - 0.5;                                //Small correction?
 
       //Build the new pulse
@@ -106,13 +105,15 @@ namespace FitterFuncs {
                accVarLenIdxMinusOneVec[distTo25ns_start] + factor * diffVarItvlIdxMinusOneVec[distTo25ns_start]
                : accVarLenIdxZEROVec[distTo25ns_start] + factor * diffVarItvlIdxZEROVec[distTo25ns_start]);
       //Fill the rest of the bins
-      for (int iTS = iTS_start + 1; iTS < num_bx; ++iTS) {
+      for (int iTS = iTS_start + 1; iTS < HcalConst::maxSamples; ++iTS) {
         int bin_idx = distTo25ns_start + 1 + (iTS - iTS_start - 1) * ns_per_bx + bin_0_start;
         ntmpbin[iTS] = acc25nsVec[bin_idx] + factor * diff25nsItvlVec[bin_idx];
       }
       //Scale the pulse
-      for (int i = iTS_start; i < num_bx; ++i) {
-        ntmpbin[i] *= pulseHeight;
+      if (scalePulse) {
+        for (int i = iTS_start; i < HcalConst::maxSamples; ++i) {
+          ntmpbin[i] *= pulseHeight;
+        }
       }
     }
 
@@ -121,10 +122,10 @@ namespace FitterFuncs {
 
   PulseShapeFunctor::~PulseShapeFunctor() {}
 
-  void PulseShapeFunctor::EvalPulse(const double *pars) {
+  void PulseShapeFunctor::EvalPulse(const float *pars) {
     int time = (pars[0] + timeShift_ - timeMean_) * HcalConst::invertnsPerBx;
-    funcShape(pulse_shape_, pars[0], pars[1], psFit_slew[time]);
-
+    float dummyPulseHeight = 0.f;
+    funcShape(pulse_shape_, pars[0], dummyPulseHeight, psFit_slew[time], false);
     return;
   }
 
@@ -148,7 +149,7 @@ namespace FitterFuncs {
     if (addPulseJitter_) {
       int time = (pars[0] + timeShift_ - timeMean_) * HcalConst::invertnsPerBx;
       //Interpolate the fit (Quickly)
-      funcShape(pulse_shape_, pars[0], pars[1], psFit_slew[time]);
+      funcShape(pulse_shape_, pars[0], pars[1], psFit_slew[time], true);
       for (j = 0; j < nSamplesToFit_; ++j) {
         psFit_erry2[j] += pulse_shape_[j] * pulse_shape_[j] * pulseJitter_;
         pulse_shape_sum_[j] = pulse_shape_[j] + pedestal;
@@ -157,7 +158,7 @@ namespace FitterFuncs {
       for (i = 1; i < parBy2; ++i) {
         time = (pars[i * 2] + timeShift_ - timeMean_) * HcalConst::invertnsPerBx;
         //Interpolate the fit (Quickly)
-        funcShape(pulse_shape_, pars[i * 2], pars[i * 2 + 1], psFit_slew[time]);
+        funcShape(pulse_shape_, pars[i * 2], pars[i * 2 + 1], psFit_slew[time], true);
         // add an uncertainty from the pulse (currently noise * pulse height =>Ecal uses full cov)
         /////
         for (j = 0; j < nSamplesToFit_; ++j) {
@@ -168,14 +169,14 @@ namespace FitterFuncs {
     } else {
       int time = (pars[0] + timeShift_ - timeMean_) * HcalConst::invertnsPerBx;
       //Interpolate the fit (Quickly)
-      funcShape(pulse_shape_, pars[0], pars[1], psFit_slew[time]);
+      funcShape(pulse_shape_, pars[0], pars[1], psFit_slew[time], true);
       for (j = 0; j < nSamplesToFit_; ++j)
         pulse_shape_sum_[j] = pulse_shape_[j] + pedestal;
 
       for (i = 1; i < parBy2; ++i) {
         time = (pars[i * 2] + timeShift_ - timeMean_) * HcalConst::invertnsPerBx;
         //Interpolate the fit (Quickly)
-        funcShape(pulse_shape_, pars[i * 2], pars[i * 2 + 1], psFit_slew[time]);
+        funcShape(pulse_shape_, pars[i * 2], pars[i * 2 + 1], psFit_slew[time], true);
         // add an uncertainty from the pulse (currently noise * pulse height =>Ecal uses full cov)
         for (j = 0; j < nSamplesToFit_; ++j)
           pulse_shape_sum_[j] += pulse_shape_[j];
@@ -201,13 +202,4 @@ namespace FitterFuncs {
     }
     return chisq;
   }
-
-  void PulseShapeFunctor::singlePulseShapeFuncMahi(const double *x) { return EvalPulse(x); }
-
-  double PulseShapeFunctor::singlePulseShapeFunc(const double *x) { return EvalPulseM2(x, 3); }
-
-  double PulseShapeFunctor::doublePulseShapeFunc(const double *x) { return EvalPulseM2(x, 5); }
-
-  double PulseShapeFunctor::triplePulseShapeFunc(const double *x) { return EvalPulseM2(x, 7); }
-
 }  // namespace FitterFuncs

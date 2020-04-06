@@ -1,11 +1,12 @@
-#include <functional>
 #include <algorithm>
-#include <iterator>
 #include <cstddef>
+#include <functional>
+#include <iterator>
+#include <map>
+#include <memory>
+#include <set>
 #include <string>
 #include <vector>
-#include <map>
-#include <set>
 
 #include <boost/iterator/transform_iterator.hpp>
 
@@ -20,6 +21,10 @@
 #include "FWCore/Utilities/interface/InputTag.h"
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 #include "FWCore/Utilities/interface/Exception.h"
+
+#include "FWCore/ParameterSet/interface/Registry.h"
+#include "FWCore/Common/interface/Provenance.h"
+#include "DataFormats/Provenance/interface/ProductProvenance.h"
 
 #include "DataFormats/PatCandidates/interface/Jet.h"
 #include "DataFormats/TrackReco/interface/Track.h"
@@ -59,8 +64,8 @@
 //
 // constants, enums and typedefs
 //
-typedef boost::shared_ptr<fastjet::ClusterSequence> ClusterSequencePtr;
-typedef boost::shared_ptr<fastjet::JetDefinition> JetDefPtr;
+typedef std::shared_ptr<fastjet::ClusterSequence> ClusterSequencePtr;
+typedef std::shared_ptr<fastjet::JetDefinition> JetDefPtr;
 
 using namespace reco;
 
@@ -161,6 +166,7 @@ private:
   bool useGroomedFatJets;
   edm::EDGetTokenT<edm::View<reco::Jet> > token_fatJets;
   edm::EDGetTokenT<edm::View<reco::Jet> > token_groomedFatJets;
+  edm::EDGetTokenT<edm::ValueMap<float> > token_weights;
 
   ClusterSequencePtr fjClusterSeq;
   JetDefPtr fjJetDefinition;
@@ -276,19 +282,24 @@ TemplatedSecondaryVertexProducer<IPTI, VTX>::TemplatedSecondaryVertexProducer(co
 
     // set jet algorithm
     if (jetAlgorithm == "Kt")
-      fjJetDefinition = JetDefPtr(new fastjet::JetDefinition(fastjet::kt_algorithm, rParam));
+      fjJetDefinition = std::make_shared<fastjet::JetDefinition>(fastjet::kt_algorithm, rParam);
     else if (jetAlgorithm == "CambridgeAachen")
-      fjJetDefinition = JetDefPtr(new fastjet::JetDefinition(fastjet::cambridge_algorithm, rParam));
+      fjJetDefinition = std::make_shared<fastjet::JetDefinition>(fastjet::cambridge_algorithm, rParam);
     else if (jetAlgorithm == "AntiKt")
-      fjJetDefinition = JetDefPtr(new fastjet::JetDefinition(fastjet::antikt_algorithm, rParam));
+      fjJetDefinition = std::make_shared<fastjet::JetDefinition>(fastjet::antikt_algorithm, rParam);
     else
       throw cms::Exception("InvalidJetAlgorithm") << "Jet clustering algorithm is invalid: " << jetAlgorithm
                                                   << ", use CambridgeAachen | Kt | AntiKt" << std::endl;
   }
-  if (useFatJets)
+  if (useFatJets) {
     token_fatJets = consumes<edm::View<reco::Jet> >(params.getParameter<edm::InputTag>("fatJets"));
-  if (useGroomedFatJets)
+  }
+  edm::InputTag srcWeights = params.getParameter<edm::InputTag>("weights");
+  if (srcWeights.label() != "")
+    token_weights = consumes<edm::ValueMap<float> >(srcWeights);
+  if (useGroomedFatJets) {
     token_groomedFatJets = consumes<edm::View<reco::Jet> >(params.getParameter<edm::InputTag>("groomedFatJets"));
+  }
   if (useFatJets && !useSVClustering)
     rParam = params.getParameter<double>("rParam");  // will be used later as a dR cut
 
@@ -319,7 +330,6 @@ void TemplatedSecondaryVertexProducer<IPTI, VTX>::produce(edm::Event &event, con
   edm::Handle<edm::View<reco::Jet> > groomedFatJetsHandle;
   if (useFatJets) {
     event.getByToken(token_fatJets, fatJetsHandle);
-
     if (useGroomedFatJets) {
       event.getByToken(token_groomedFatJets, groomedFatJetsHandle);
 
@@ -329,6 +339,9 @@ void TemplatedSecondaryVertexProducer<IPTI, VTX>::produce(edm::Event &event, con
             << fatJetsHandle->size() << "). Please check that the two jet collections belong to each other.";
     }
   }
+  edm::Handle<edm::ValueMap<float> > weightsHandle;
+  if (!token_weights.isUninitialized())
+    event.getByToken(token_weights, weightsHandle);
 
   edm::Handle<BeamSpot> beamSpot;
   unsigned int bsCovSrc[7] = {
@@ -379,7 +392,17 @@ void TemplatedSecondaryVertexProducer<IPTI, VTX>::produce(edm::Event &event, con
             edm::LogWarning("NullTransverseMomentum") << "dropping input candidate with pt=0";
             continue;
           }
-          fjInputs.push_back(fastjet::PseudoJet(constit->px(), constit->py(), constit->pz(), constit->energy()));
+          if (it->isWeighted()) {
+            if (token_weights.isUninitialized())
+              throw cms::Exception("MissingConstituentWeight")
+                  << "TemplatedSecondaryVertexProducer: No weights (e.g. PUPPI) given for weighted jet collection"
+                  << std::endl;
+            float w = (*weightsHandle)[constit];
+            fjInputs.push_back(
+                fastjet::PseudoJet(constit->px() * w, constit->py() * w, constit->pz() * w, constit->energy() * w));
+          } else {
+            fjInputs.push_back(fastjet::PseudoJet(constit->px(), constit->py(), constit->pz(), constit->energy()));
+          }
         }
       }
     } else {
@@ -393,7 +416,17 @@ void TemplatedSecondaryVertexProducer<IPTI, VTX>::produce(edm::Event &event, con
             edm::LogWarning("NullTransverseMomentum") << "dropping input candidate with pt=0";
             continue;
           }
-          fjInputs.push_back(fastjet::PseudoJet(constit->px(), constit->py(), constit->pz(), constit->energy()));
+          if (it->jet()->isWeighted()) {
+            if (token_weights.isUninitialized())
+              throw cms::Exception("MissingConstituentWeight")
+                  << "TemplatedSecondaryVertexProducer: No weights (e.g. PUPPI) given for weighted jet collection"
+                  << std::endl;
+            float w = (*weightsHandle)[constit];
+            fjInputs.push_back(
+                fastjet::PseudoJet(constit->px() * w, constit->py() * w, constit->pz() * w, constit->energy() * w));
+          } else {
+            fjInputs.push_back(fastjet::PseudoJet(constit->px(), constit->py(), constit->pz(), constit->energy()));
+          }
         }
       }
     }
@@ -412,7 +445,7 @@ void TemplatedSecondaryVertexProducer<IPTI, VTX>::produce(edm::Event &event, con
     }
 
     // define jet clustering sequence
-    fjClusterSeq = ClusterSequencePtr(new fastjet::ClusterSequence(fjInputs, *fjJetDefinition));
+    fjClusterSeq = std::make_shared<fastjet::ClusterSequence>(fjInputs, *fjJetDefinition);
     // recluster jet constituents and inserted "ghosts"
     std::vector<fastjet::PseudoJet> inclusiveJets = fastjet::sorted_by_pt(fjClusterSeq->inclusive_jets(jetPtMin));
 
@@ -1271,6 +1304,7 @@ void TemplatedSecondaryVertexProducer<IPTI, VTX>::fillDescriptions(edm::Configur
   desc.addOptional<double>("relPtTolerance", 1e-03);
   desc.addOptional<edm::InputTag>("fatJets");
   desc.addOptional<edm::InputTag>("groomedFatJets");
+  desc.add<edm::InputTag>("weights", edm::InputTag(""));
   descriptions.addDefault(desc);
 }
 

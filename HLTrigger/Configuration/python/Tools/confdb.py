@@ -184,8 +184,10 @@ fragment = customizeHLTforAll(fragment,"%s")
     else:
       if self.config.type=="Fake":
         prefix = "run1"
-      else:
+      elif self.config.type in ("Fake1","Fake2","2018"):
         prefix = "run2"
+      else:
+        prefix = "run3"
       _gtData = "auto:"+prefix+"_hlt_"+self.config.type
       _gtMc   = "auto:"+prefix+"_mc_" +self.config.type
       self.data += """
@@ -754,7 +756,6 @@ if 'GlobalTag' in %%(dict)s:
       self.options['essources'].append( "-es_hardcode" )
       self.options['essources'].append( "-magfield" )
 
-      self.options['esmodules'].append( "-AutoMagneticFieldESProducer" )
       self.options['esmodules'].append( "-SlaveField0" )
       self.options['esmodules'].append( "-SlaveField20" )
       self.options['esmodules'].append( "-SlaveField30" )

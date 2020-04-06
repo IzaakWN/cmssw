@@ -4,14 +4,14 @@
 #include "TrackingTools/MeasurementDet/interface/MeasurementDet.h"
 #include "TkPhase2OTMeasurementDet.h"
 
-#include "Geometry/TrackerGeometryBuilder/interface/StackGeomDet.h"
+#include "Geometry/CommonDetUnit/interface/StackGeomDet.h"
 #include "RecoLocalTracker/ClusterParameterEstimator/interface/PixelClusterParameterEstimator.h"
 
 #include "FWCore/Utilities/interface/Visibility.h"
 
 // FIXME::TkStackMeasurementDet in this moment is just a prototype: to be fixed soon!
 
-class TkStackMeasurementDet GCC11_FINAL : public MeasurementDet {
+class TkStackMeasurementDet final : public MeasurementDet {
 public:
   TkStackMeasurementDet(const StackGeomDet* gdet, const PixelClusterParameterEstimator* cpe);
   void init(const MeasurementDet* lowerDet, const MeasurementDet* upperDet);

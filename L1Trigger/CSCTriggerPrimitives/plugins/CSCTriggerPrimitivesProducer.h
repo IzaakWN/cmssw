@@ -74,6 +74,17 @@ private:
   // switch to for enabling checking against the list of bad chambers
   bool checkBadChambers_;
 
+  // write out all CLCTs
+  // only relevant when CSCConstants::MAX_CLCTS_PER_PROCESSOR is > 2
+  bool writeOutAllCLCTs_;
+
+  // write out all ALCTs
+  // only relevant when CSCConstants::MAX_ALCTS_PER_PROCESSOR is > 2
+  bool writeOutAllALCTs_;
+
+  // Write out pre-triggers
+  bool savePreTriggers_;
+
   // switch to enable the integrated local triggers in ME11 and ME21
   bool runME11ILT_;
   bool runME21ILT_;

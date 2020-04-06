@@ -108,6 +108,12 @@ PATMuonProducer::PATMuonProducer(const edm::ParameterSet& iConfig, PATMuonHeavyO
   embedPickyMuon_ = iConfig.getParameter<bool>("embedPickyMuon");
   embedTpfmsMuon_ = iConfig.getParameter<bool>("embedTpfmsMuon");
   embedDytMuon_ = iConfig.getParameter<bool>("embedDytMuon");
+  // embedding of inverse beta variable information
+  addInverseBeta_ = iConfig.getParameter<bool>("addInverseBeta");
+  if (addInverseBeta_) {
+    muonTimeExtraToken_ =
+        consumes<edm::ValueMap<reco::MuonTimeExtra>>(iConfig.getParameter<edm::InputTag>("sourceMuonTimeExtra"));
+  }
   // Monte Carlo matching
   addGenMatch_ = iConfig.getParameter<bool>("addGenMatch");
   if (addGenMatch_) {
@@ -515,6 +521,12 @@ void PATMuonProducer::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
       iEvent.getByToken(pfMuonToken_, pfMuons);
     }
 
+    edm::Handle<edm::ValueMap<reco::MuonTimeExtra>> muonsTimeExtra;
+    if (addInverseBeta_) {
+      // get MuonTimerExtra value map
+      iEvent.getByToken(muonTimeExtraToken_, muonsTimeExtra);
+    }
+
     for (edm::View<reco::Muon>::const_iterator itMuon = muons->begin(); itMuon != muons->end(); ++itMuon) {
       // construct the Muon from the ref -> save ref to original object
       unsigned int idx = itMuon - muons->begin();
@@ -604,6 +616,9 @@ void PATMuonProducer::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
             }
           }
         }
+      }
+      if (addInverseBeta_) {
+        aMuon.readTimeExtra((*muonsTimeExtra)[muonRef]);
       }
       // MC info
       aMuon.initSimInfo();
@@ -962,6 +977,11 @@ void PATMuonProducer::fillDescriptions(edm::ConfigurationDescriptions& descripti
   iDesc.add<bool>("embedPFCandidate", false)->setComment("embed external particle flow object");
   iDesc.add<bool>("embedPfEcalEnergy", true)->setComment("add ecal energy as reconstructed by PF");
 
+  // inverse beta computation
+  iDesc.add<bool>("addInverseBeta", true)->setComment("add combined inverse beta");
+  iDesc.add<edm::InputTag>("sourceInverseBeta", edm::InputTag("muons", "combined"))
+      ->setComment("source of inverse beta values");
+
   // MC matching configurables
   iDesc.add<bool>("addGenMatch", true)->setComment("add MC matching");
   iDesc.add<bool>("embedGenMatch", false)->setComment("embed MC matched MC information");
@@ -1077,27 +1097,24 @@ void PATMuonProducer::embedHighLevel(pat::Muon& aMuon,
   // Correct to PV
 
   // PV2D
-  std::pair<bool, Measurement1D> result =
-      IPTools::signedTransverseImpactParameter(tt, GlobalVector(track->px(), track->py(), track->pz()), primaryVertex);
-  double d0_corr = result.second.value();
-  double d0_err = primaryVertexIsValid ? result.second.error() : -1.0;
-  aMuon.setDB(d0_corr, d0_err, pat::Muon::PV2D);
+  aMuon.setDB(track->dxy(primaryVertex.position()),
+              track->dxyError(primaryVertex.position(), primaryVertex.covariance()),
+              pat::Muon::PV2D);
 
   // PV3D
-  result = IPTools::signedImpactParameter3D(tt, GlobalVector(track->px(), track->py(), track->pz()), primaryVertex);
-  d0_corr = result.second.value();
-  d0_err = primaryVertexIsValid ? result.second.error() : -1.0;
+  std::pair<bool, Measurement1D> result =
+      IPTools::signedImpactParameter3D(tt, GlobalVector(track->px(), track->py(), track->pz()), primaryVertex);
+  double d0_corr = result.second.value();
+  double d0_err = primaryVertexIsValid ? result.second.error() : -1.0;
   aMuon.setDB(d0_corr, d0_err, pat::Muon::PV3D);
 
   // Correct to beam spot
-  // make a fake vertex out of beam spot
-  reco::Vertex vBeamspot(beamspot.position(), beamspot.rotatedCovariance3D());
 
   // BS2D
-  result = IPTools::signedTransverseImpactParameter(tt, GlobalVector(track->px(), track->py(), track->pz()), vBeamspot);
-  d0_corr = result.second.value();
-  d0_err = beamspotIsValid ? result.second.error() : -1.0;
-  aMuon.setDB(d0_corr, d0_err, pat::Muon::BS2D);
+  aMuon.setDB(track->dxy(beamspot), track->dxyError(beamspot), pat::Muon::BS2D);
+
+  // make a fake vertex out of beam spot
+  reco::Vertex vBeamspot(beamspot.position(), beamspot.rotatedCovariance3D());
 
   // BS3D
   result = IPTools::signedImpactParameter3D(tt, GlobalVector(track->px(), track->py(), track->pz()), vBeamspot);

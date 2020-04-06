@@ -1,13 +1,13 @@
-# hltGetConfiguration --full --data /dev/CMSSW_11_0_0/PIon --type PIon --unprescale --process HLTPIon --globaltag auto:run2_hlt_PIon --input file:RelVal_Raw_PIon_DATA.root
+# hltGetConfiguration --full --data /dev/CMSSW_11_1_0/PIon --type PIon --unprescale --process HLTPIon --globaltag auto:run3_hlt_PIon --input file:RelVal_Raw_PIon_DATA.root
 
-# /dev/CMSSW_11_0_0/PIon/V4 (CMSSW_11_0_0_pre4)
+# /dev/CMSSW_11_1_0/PIon/V6 (CMSSW_11_1_0_pre5)
 
 import FWCore.ParameterSet.Config as cms
 
 process = cms.Process( "HLTPIon" )
 
 process.HLTConfigVersion = cms.PSet(
-  tableName = cms.string('/dev/CMSSW_11_0_0/PIon/V4')
+  tableName = cms.string('/dev/CMSSW_11_1_0/PIon/V6')
 )
 
 process.transferSystem = cms.PSet( 
@@ -3988,6 +3988,7 @@ process.TrackerDigiGeometryESModule = cms.ESProducer( "TrackerDigiGeometryESModu
   alignmentsLabel = cms.string( "" )
 )
 process.TrackerGeometricDetESModule = cms.ESProducer( "TrackerGeometricDetESModule",
+  fromDD4hep = cms.bool( False ),
   appendToDataLabel = cms.string( "" ),
   fromDDD = cms.bool( False )
 )
@@ -4931,7 +4932,7 @@ process.hltESPLowPtTripletStepTrajectoryCleanerBySharedHits = cms.ESProducer( "T
 process.hltESPMeasurementTracker = cms.ESProducer( "MeasurementTrackerESProducer",
   UseStripStripQualityDB = cms.bool( True ),
   StripCPE = cms.string( "hltESPStripCPEfromTrackAngle" ),
-  UsePixelROCQualityDB = cms.bool( True ),
+  appendToDataLabel = cms.string( "" ),
   DebugPixelROCQualityDB = cms.untracked.bool( False ),
   UseStripAPVFiberQualityDB = cms.bool( True ),
   badStripCuts = cms.PSet( 
@@ -4954,15 +4955,17 @@ process.hltESPMeasurementTracker = cms.ESProducer( "MeasurementTrackerESProducer
   ),
   DebugStripModuleQualityDB = cms.untracked.bool( False ),
   ComponentName = cms.string( "hltESPMeasurementTracker" ),
-  DebugPixelModuleQualityDB = cms.untracked.bool( False ),
+  UsePixelROCQualityDB = cms.bool( True ),
   UsePixelModuleQualityDB = cms.bool( True ),
   DebugStripAPVFiberQualityDB = cms.untracked.bool( False ),
   HitMatcher = cms.string( "StandardMatcher" ),
   DebugStripStripQualityDB = cms.untracked.bool( False ),
-  PixelCPE = cms.string( "hltESPPixelCPEGeneric" ),
+  DebugPixelModuleQualityDB = cms.untracked.bool( False ),
+  MaskBadAPVFibers = cms.bool( True ),
   SiStripQualityLabel = cms.string( "" ),
   UseStripModuleQualityDB = cms.bool( True ),
-  MaskBadAPVFibers = cms.bool( True )
+  PixelCPE = cms.string( "hltESPPixelCPEGeneric" ),
+  Phase2StripCPE = cms.string( "" )
 )
 process.hltESPMixedStepClusterShapeHitFilter = cms.ESProducer( "ClusterShapeHitFilterESProducer",
   ComponentName = cms.string( "hltESPMixedStepClusterShapeHitFilter" ),
@@ -5003,7 +5006,9 @@ process.hltESPMuonTransientTrackingRecHitBuilder = cms.ESProducer( "MuonTransien
   ComponentName = cms.string( "hltESPMuonTransientTrackingRecHitBuilder" )
 )
 process.hltESPPixelCPEGeneric = cms.ESProducer( "PixelCPEGenericESProducer",
+  DoLorentz = cms.bool( False ),
   useLAAlignmentOffsets = cms.bool( False ),
+  Upgrade = cms.bool( False ),
   DoCosmics = cms.bool( False ),
   eff_charge_cut_highX = cms.double( 1.0 ),
   eff_charge_cut_highY = cms.double( 1.0 ),
@@ -5016,25 +5021,36 @@ process.hltESPPixelCPEGeneric = cms.ESProducer( "PixelCPEGenericESProducer",
   size_cutX = cms.double( 3.0 ),
   useLAWidthFromDB = cms.bool( False ),
   inflate_errors = cms.bool( False ),
-  Alpha2Order = cms.bool( True ),
+  lAWidthBPix = cms.double( 0.0 ),
   ClusterProbComputationFlag = cms.int32( 0 ),
-  PixelErrorParametrization = cms.string( "NOTcmsim" ),
-  EdgeClusterErrorX = cms.double( 50.0 ),
+  Alpha2Order = cms.bool( True ),
+  appendToDataLabel = cms.string( "" ),
   EdgeClusterErrorY = cms.double( 85.0 ),
+  SmallPitch = cms.bool( False ),
   LoadTemplatesFromDB = cms.bool( True ),
+  EdgeClusterErrorX = cms.double( 50.0 ),
+  lAWidthFPix = cms.double( 0.0 ),
+  lAOffset = cms.double( 0.0 ),
   ComponentName = cms.string( "hltESPPixelCPEGeneric" ),
   MagneticFieldRecord = cms.ESInputTag( "" ),
   IrradiationBiasCorrection = cms.bool( True )
 )
 process.hltESPPixelCPETemplateReco = cms.ESProducer( "PixelCPETemplateRecoESProducer",
   DoLorentz = cms.bool( True ),
-  DoCosmics = cms.bool( False ),
-  LoadTemplatesFromDB = cms.bool( True ),
+  barrelTemplateID = cms.int32( 0 ),
+  appendToDataLabel = cms.string( "" ),
+  lAOffset = cms.double( 0.0 ),
+  lAWidthFPix = cms.double( 0.0 ),
   ComponentName = cms.string( "hltESPPixelCPETemplateReco" ),
-  Alpha2Order = cms.bool( True ),
+  directoryWithTemplates = cms.int32( 0 ),
+  useLAWidthFromDB = cms.bool( True ),
+  lAWidthBPix = cms.double( 0.0 ),
   ClusterProbComputationFlag = cms.int32( 0 ),
+  LoadTemplatesFromDB = cms.bool( True ),
+  forwardTemplateID = cms.int32( 0 ),
   speed = cms.int32( -2 ),
-  UseClusterSplitter = cms.bool( False )
+  UseClusterSplitter = cms.bool( False ),
+  Alpha2Order = cms.bool( True )
 )
 process.hltESPPixelLessStepChi2ChargeMeasurementEstimator16 = cms.ESProducer( "Chi2ChargeMeasurementEstimatorESProducer",
   appendToDataLabel = cms.string( "" ),
@@ -5421,15 +5437,7 @@ process.preshowerDetIdAssociator = cms.ESProducer( "DetIdAssociatorESProducer",
   includeGEM = cms.bool( False )
 )
 process.siPixelQualityESProducer = cms.ESProducer( "SiPixelQualityESProducer",
-  siPixelQualityLabel = cms.string( "" ),
-  ListOfRecordToMerge = cms.VPSet( 
-    cms.PSet(  record = cms.string( "SiPixelQualityFromDbRcd" ),
-      tag = cms.string( "" )
-    ),
-    cms.PSet(  record = cms.string( "SiPixelDetVOffRcd" ),
-      tag = cms.string( "" )
-    )
-  )
+  siPixelQualityLabel = cms.string( "" )
 )
 process.siPixelTemplateDBObjectESProducer = cms.ESProducer( "SiPixelTemplateDBObjectESProducer" )
 process.siStripBackPlaneCorrectionDepESProducer = cms.ESProducer( "SiStripBackPlaneCorrectionDepESProducer",
@@ -5469,11 +5477,12 @@ process.FastTimerService = cms.Service( "FastTimerService",
     dqmPath = cms.untracked.string( "HLT/TimerService" ),
     dqmModuleTimeRange = cms.untracked.double( 40.0 ),
     enableDQMbyPath = cms.untracked.bool( False ),
-    dqmModuleTimeResolution = cms.untracked.double( 0.2 ),
+    writeJSONSummary = cms.untracked.bool( False ),
     dqmPathMemoryResolution = cms.untracked.double( 5000.0 ),
     enableDQM = cms.untracked.bool( True ),
     enableDQMbyModule = cms.untracked.bool( False ),
     dqmModuleMemoryRange = cms.untracked.double( 100000.0 ),
+    dqmModuleMemoryResolution = cms.untracked.double( 500.0 ),
     dqmMemoryResolution = cms.untracked.double( 5000.0 ),
     enableDQMbyLumiSection = cms.untracked.bool( True ),
     dqmPathTimeResolution = cms.untracked.double( 0.5 ),
@@ -5481,14 +5490,15 @@ process.FastTimerService = cms.Service( "FastTimerService",
     dqmPathTimeRange = cms.untracked.double( 100.0 ),
     dqmTimeRange = cms.untracked.double( 2000.0 ),
     enableDQMTransitions = cms.untracked.bool( False ),
-    dqmLumiSectionsRange = cms.untracked.uint32( 2500 ),
     dqmPathMemoryRange = cms.untracked.double( 1000000.0 ),
+    dqmLumiSectionsRange = cms.untracked.uint32( 2500 ),
+    enableDQMbyProcesses = cms.untracked.bool( True ),
     dqmMemoryRange = cms.untracked.double( 1000000.0 ),
     dqmTimeResolution = cms.untracked.double( 5.0 ),
     printRunSummary = cms.untracked.bool( True ),
-    dqmModuleMemoryResolution = cms.untracked.double( 500.0 ),
+    dqmModuleTimeResolution = cms.untracked.double( 0.2 ),
     printJobSummary = cms.untracked.bool( True ),
-    enableDQMbyProcesses = cms.untracked.bool( True )
+    jsonFileName = cms.untracked.string( "resources.json" )
 )
 process.MessageLogger = cms.Service( "MessageLogger",
     suppressInfo = cms.untracked.vstring(  ),
@@ -5599,7 +5609,11 @@ process.MessageLogger = cms.Service( "MessageLogger",
 )
 process.ThroughputService = cms.Service( "ThroughputService",
     dqmPath = cms.untracked.string( "HLT/Throughput" ),
+    eventRange = cms.untracked.uint32( 10000 ),
     timeRange = cms.untracked.double( 60000.0 ),
+    printEventSummary = cms.untracked.bool( False ),
+    eventResolution = cms.untracked.uint32( 1 ),
+    enableDQM = cms.untracked.bool( True ),
     dqmPathByProcesses = cms.untracked.bool( False ),
     timeResolution = cms.untracked.double( 5.828 )
 )
@@ -5875,7 +5889,7 @@ process.options = cms.untracked.PSet(
 # override the GlobalTag, connection string and pfnPrefix
 if 'GlobalTag' in process.__dict__:
     from Configuration.AlCa.GlobalTag import GlobalTag as customiseGlobalTag
-    process.GlobalTag = customiseGlobalTag(process.GlobalTag, globaltag = 'auto:run2_hlt_PIon')
+    process.GlobalTag = customiseGlobalTag(process.GlobalTag, globaltag = 'auto:run3_hlt_PIon')
 
 if 'MessageLogger' in process.__dict__:
     process.MessageLogger.categories.append('TriggerSummaryProducerAOD')
@@ -5888,13 +5902,13 @@ if 'MessageLogger' in process.__dict__:
 _customInfo = {}
 _customInfo['menuType'  ]= "PIon"
 _customInfo['globalTags']= {}
-_customInfo['globalTags'][True ] = "auto:run2_hlt_PIon"
-_customInfo['globalTags'][False] = "auto:run2_mc_PIon"
+_customInfo['globalTags'][True ] = "auto:run3_hlt_PIon"
+_customInfo['globalTags'][False] = "auto:run3_mc_PIon"
 _customInfo['inputFiles']={}
 _customInfo['inputFiles'][True]  = "file:RelVal_Raw_PIon_DATA.root"
 _customInfo['inputFiles'][False] = "file:RelVal_Raw_PIon_MC.root"
 _customInfo['maxEvents' ]=  100
-_customInfo['globalTag' ]= "auto:run2_hlt_PIon"
+_customInfo['globalTag' ]= "auto:run3_hlt_PIon"
 _customInfo['inputFile' ]=  ['file:RelVal_Raw_PIon_DATA.root']
 _customInfo['realData'  ]=  True
 from HLTrigger.Configuration.customizeHLTforALL import customizeHLTforAll

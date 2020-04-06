@@ -59,7 +59,7 @@
 #include "Geometry/TrackerGeometryBuilder/interface/TrackerGeometry.h"
 #include "Geometry/Records/interface/TrackerDigiGeometryRecord.h"
 #include "Geometry/TrackerNumberingBuilder/interface/GeometricDet.h"
-#include "Geometry/TrackerGeometryBuilder/interface/PixelGeomDetType.h"
+#include "Geometry/CommonDetUnit/interface/PixelGeomDetType.h"
 #include "Geometry/TrackerGeometryBuilder/interface/StripGeomDetType.h"
 
 #include "DataFormats/GeometrySurface/interface/ReferenceCounted.h"
@@ -247,7 +247,6 @@ protected:
   void analyze(const edm::Event& e, const edm::EventSetup& c) override;
   void bookHistograms(DQMStore::IBooker& ibooker, const edm::Run& run, const edm::EventSetup& es) override;
   const MagneticField* magfield2_;
-  void endJob() override;
 
 private:
   DQMStore* dbe_;

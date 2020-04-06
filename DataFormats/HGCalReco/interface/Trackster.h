@@ -26,8 +26,44 @@ namespace ticl {
     // the outer element is on the outer layer.
     std::vector<std::array<unsigned int, 2> > edges;
 
+    // Product ID of the seeding collection used to create the Trackster.
+    // For GlobalSeeding the ProductID is set to 0. For track-based seeding
+    // this is the ProductID of the track-collection used to create the
+    // seeding-regions.
     edm::ProductID seedID;
+    // For Global Seeding the index is fixed to one. For track-based seeding,
+    // the index is the index of the track originating the seeding region that
+    // created the trackster. For track-based seeding the pointer to the track
+    // can be cooked using the previous ProductID and this index.
     int seedIndex;
+
+    // -99, -1 if not available. ns units otherwise
+    float time;
+    float timeError;
+
+    // regressed energy
+    float regressed_energy;
+
+    // types considered by the particle identification
+    enum class ParticleType {
+      photon = 0,
+      electron,
+      muon,
+      neutral_pion,
+      charged_hadron,
+      neutral_hadron,
+      ambiguous,
+      unknown,
+    };
+
+    // trackster ID probabilities
+    std::array<float, 8> id_probabilities;
+
+    // convenience method to return the ID probability for a certain particle type
+    inline float id_probability(ParticleType type) const {
+      // probabilities are stored in the same order as defined in the ParticleType enum
+      return id_probabilities[(int)type];
+    }
   };
 }  // namespace ticl
 #endif

@@ -10,6 +10,33 @@
 //
 // Author:      Zhen Xie
 //
+
+// Some comments on concurrency. There are 3 relevant things the Framework is
+// doing that prevent concurrency issues. This happens automatically and
+// CondDBESSource can rely on the Framework taking care of this.
+//
+//   1. There is a recursive global mutex which is locked while calls to
+//   DataProxy::make and setIntervalFor are executing that allows only
+//   1 thread to be running one of those functions at a time. (There
+//   is some discussion about replacing this mutex with lockfree concurrency
+//   mechanisms someday in the future, although this would be done in such
+//   a way as to provide similar protection against data races.)
+//
+//   2. Calls are sequenced that a call to setIntervalFor is made, then
+//   all related calls to DataProxy::initializeForNewIOV are made before
+//   another call to setIntervalFor is made.  It is configurable how many
+//   IOVs can be running concurrently. The Framework will not call
+//   initializeForNewIOV or start running a new IOV unless the
+//   number of active IOVs is less than that configured number.
+//
+//   3. Independent of the above two items, after a call is made to
+//   DataProxy::initializeForNewIOV for a particular
+//   EventSetupRecordKey and iovIndex, all calls to DataProxy::make
+//   associated with that whose data is requested will be completed
+//   and processing of luminosity blocks associated with that will
+//   be completed before another call to DataProxy::initializeForNewIOV
+//   is made for that EventSetupRecordKey and iovIndex.
+
 // system include files
 #include <string>
 #include <map>
@@ -32,6 +59,8 @@ namespace cond {
 
 class CondDBESSource : public edm::eventsetup::DataProxyProvider, public edm::EventSetupRecordIntervalFinder {
 public:
+  using DataKey = edm::eventsetup::DataKey;
+  using EventSetupRecordKey = edm::eventsetup::EventSetupRecordKey;
   typedef std::shared_ptr<cond::DataProxyWrapperBase> ProxyP;
   typedef std::multimap<std::string, ProxyP> ProxyMap;
 
@@ -41,14 +70,13 @@ public:
   ~CondDBESSource() override;
 
 protected:
-  void setIntervalFor(const edm::eventsetup::EventSetupRecordKey&,
-                      const edm::IOVSyncValue&,
-                      edm::ValidityInterval&) override;
+  void setIntervalFor(const EventSetupRecordKey&, const edm::IOVSyncValue&, edm::ValidityInterval&) override;
 
-  void registerProxies(const edm::eventsetup::EventSetupRecordKey& iRecordKey, KeyedProxies& aProxyList) override;
+  KeyedProxiesVector registerProxies(const EventSetupRecordKey&, unsigned int iovIndex) override;
 
-  void newInterval(const edm::eventsetup::EventSetupRecordKey& iRecordType,
-                   const edm::ValidityInterval& iInterval) override;
+  void initConcurrentIOVs(const EventSetupRecordKey& key, unsigned int nConcurrentIOVs) override;
+
+  bool isConcurrentFinder() const override { return true; }
 
 private:
   // ----------member data ---------------------------

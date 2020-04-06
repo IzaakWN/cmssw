@@ -88,7 +88,7 @@ private:
 
   G4MTRunManagerKernel* m_kernel;
 
-  std::unique_ptr<CustomUIsession> m_UIsession;
+  CustomUIsession* m_UIsession;
   std::unique_ptr<PhysicsList> m_physicsList;
   bool m_managerInitialized;
   bool m_runTerminated;
@@ -102,6 +102,7 @@ private:
   const std::string m_PhysicsTablesDir;
   bool m_StorePhysicsTables;
   bool m_RestorePhysicsTables;
+  bool m_UseParametrisedEMPhysics;
   bool m_check;
   edm::ParameterSet m_pPhysics;
   edm::ParameterSet m_pRunAction;

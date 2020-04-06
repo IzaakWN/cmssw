@@ -18,7 +18,7 @@ CSCGEMMotherboard::CSCGEMMotherboard(unsigned endcap,
 
   const edm::ParameterSet coPadParams(station == 1 ? conf.getParameter<edm::ParameterSet>("copadParamGE11")
                                                    : conf.getParameter<edm::ParameterSet>("copadParamGE21"));
-  coPadProcessor.reset(new GEMCoPadProcessor(endcap, station, chamber, coPadParams));
+  coPadProcessor.reset(new GEMCoPadProcessor(theRegion, theStation, theChamber, coPadParams));
 
   maxDeltaPadL1_ = (theParity ? tmbParams_.getParameter<int>("maxDeltaPadL1Even")
                               : tmbParams_.getParameter<int>("maxDeltaPadL1Odd"));
@@ -36,17 +36,9 @@ void CSCGEMMotherboard::clear() {
   coPads_.clear();
 }
 
-void CSCGEMMotherboard::run(const CSCWireDigiCollection* wiredc,
-                            const CSCComparatorDigiCollection* compdc,
-                            const GEMPadDigiClusterCollection* gemClusters) {
-  std::unique_ptr<GEMPadDigiCollection> gemPads(new GEMPadDigiCollection());
-  coPadProcessor->declusterize(gemClusters, *gemPads);
-  run(wiredc, compdc, gemPads.get());
-}
-
 void CSCGEMMotherboard::retrieveGEMPads(const GEMPadDigiCollection* gemPads, unsigned id) {
   pads_.clear();
-  auto superChamber(gem_g->superChamber(id));
+  const auto& superChamber(gem_g->superChamber(id));
   for (const auto& ch : superChamber->chambers()) {
     for (const auto& roll : ch->etaPartitions()) {
       GEMDetId roll_id(roll->id());
@@ -120,9 +112,10 @@ CSCCorrelatedLCTDigi CSCGEMMotherboard::constructLCTsGEM(const CSCALCTDigi& alct
     keyWG = alct.getKeyWG();
     bend = clct.getBend();
     thisLCT.setALCT(getBXShiftedALCT(alct));
-    thisLCT.setCLCT(clct);
+    thisLCT.setCLCT(getBXShiftedCLCT(clct));
     thisLCT.setGEM1(gem1);
     thisLCT.setType(CSCCorrelatedLCTDigi::ALCTCLCTGEM);
+    valid = doesWiregroupCrossStrip(keyWG, keyStrip) ? 1 : 0;
   } else if (alct.isValid() and clct.isValid() and not gem1.isValid() and gem2.isValid()) {
     pattern = encodePattern(clct.getPattern());
     quality = findQualityGEM(alct, clct, 2);
@@ -131,10 +124,11 @@ CSCCorrelatedLCTDigi CSCGEMMotherboard::constructLCTsGEM(const CSCALCTDigi& alct
     keyWG = alct.getKeyWG();
     bend = clct.getBend();
     thisLCT.setALCT(getBXShiftedALCT(alct));
-    thisLCT.setCLCT(clct);
+    thisLCT.setCLCT(getBXShiftedCLCT(clct));
     thisLCT.setGEM1(gem2.first());
     thisLCT.setGEM2(gem2.second());
     thisLCT.setType(CSCCorrelatedLCTDigi::ALCTCLCT2GEM);
+    valid = doesWiregroupCrossStrip(keyWG, keyStrip) ? 1 : 0;
   } else if (alct.isValid() and gem2.isValid() and not clct.isValid()) {
     //in ME11
     //ME1b: keyWG >15,
@@ -173,23 +167,23 @@ CSCCorrelatedLCTDigi CSCGEMMotherboard::constructLCTsGEM(const CSCALCTDigi& alct
     thisLCT.setGEM1(gem2.first());
     thisLCT.setGEM2(gem2.second());
     thisLCT.setType(CSCCorrelatedLCTDigi::ALCT2GEM);
+    valid = true;
   } else if (clct.isValid() and gem2.isValid() and not alct.isValid()) {
-    auto p(getCSCPart(clct.getKeyStrip()));
-    const auto& mymap2 = getLUT()->get_gem_roll_to_csc_wg(theParity, p);
+    const auto& mymap2 = getLUT()->get_gem_roll_to_csc_wg(theParity);
     pattern = encodePattern(clct.getPattern());
     quality = promoteCLCTGEMquality_ ? 15 : 11;
     bx = gem2.bx(1) + CSCConstants::LCT_CENTRAL_BX;
     keyStrip = clct.getKeyStrip();
     // choose the corresponding wire-group in the middle of the partition
-    keyWG = mymap2[gem2.roll()];
+    keyWG = mymap2[gem2.roll() - 1];
     bend = clct.getBend();
     thisLCT.setCLCT(clct);
     thisLCT.setGEM1(gem2.first());
     thisLCT.setGEM2(gem2.second());
     thisLCT.setType(CSCCorrelatedLCTDigi::CLCT2GEM);
+    valid = true;
   }
 
-  valid = doesWiregroupCrossStrip(keyWG, keyStrip) ? 1 : 0;
   if (valid == 0)
     LogTrace("CSCGEMCMotherboard") << "Warning!!! wiregroup and strip pair are not crossing each other"
                                    << " detid " << cscId_ << " with wiregroup " << keyWG << "keyStrip " << keyStrip
@@ -241,8 +235,9 @@ int CSCGEMMotherboard::getRoll(const GEMPadDigiId& p) const { return GEMDetId(p.
 
 int CSCGEMMotherboard::getRoll(const GEMCoPadDigiId& p) const { return p.second.roll(); }
 
-int CSCGEMMotherboard::getRoll(const CSCALCTDigi& alct) const {
-  return (getLUT()->get_csc_wg_to_gem_roll(theParity))[alct.getKeyWG()].first;
+std::pair<int, int> CSCGEMMotherboard::getRolls(const CSCALCTDigi& alct) const {
+  return std::make_pair((getLUT()->get_csc_wg_to_gem_roll(theParity))[alct.getKeyWG()].first,
+                        (getLUT()->get_csc_wg_to_gem_roll(theParity))[alct.getKeyWG()].second);
 }
 
 float CSCGEMMotherboard::getPad(const GEMPadDigi& p) const { return p.pad(); }

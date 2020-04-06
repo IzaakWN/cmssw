@@ -11,8 +11,8 @@ MicroEventContent = cms.PSet(
         'keep *_slimmedTausBoosted_*_*',
         'keep *_slimmedCaloJets_*_*',
         'keep *_slimmedJets_*_*',
-        # drop content created by MINIAOD DeepFlavour production
-        'drop recoBaseTagInfosOwned_slimmedJets_*_*',
+        # keep slimmedJets TagInfos, currently only PixelClusterTagInfo
+        'keep recoBaseTagInfosOwned_slimmedJets_*_*',
         'keep *_slimmedJetsAK8_*_*',
         # drop content created by MINIAOD DeepDoubleB production
         'drop recoBaseTagInfosOwned_slimmedJetsAK8_*_*',
@@ -144,6 +144,10 @@ MicroEventContentMC.outputCommands += [
                                         'keep L1GtTriggerMenuLite_l1GtTriggerMenuLite__*'
                                       ]
 
+from Configuration.Eras.Modifier_strips_vfp30_2016_cff import strips_vfp30_2016
+strips_vfp30_2016.toModify(MicroEventContentMC, outputCommands = MicroEventContentMC.outputCommands + [
+    'keep *_simAPVsaturation_SimulatedAPVDynamicGain_*'
+])
 
 MiniAODOverrideBranchesSplitLevel = cms.untracked.VPSet( [
 cms.untracked.PSet(branch = cms.untracked.string("patPackedCandidates_packedPFCandidates__*"),splitLevel=cms.untracked.int32(99)),

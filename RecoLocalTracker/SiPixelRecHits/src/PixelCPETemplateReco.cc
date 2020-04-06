@@ -2,7 +2,7 @@
 #include "RecoLocalTracker/SiPixelRecHits/interface/PixelCPETemplateReco.h"
 
 // Geometry services
-#include "Geometry/TrackerGeometryBuilder/interface/PixelGeomDetUnit.h"
+#include "Geometry/CommonDetUnit/interface/PixelGeomDetUnit.h"
 #include "Geometry/TrackerGeometryBuilder/interface/RectangularPixelTopology.h"
 
 //#define DEBUG
@@ -99,8 +99,8 @@ PixelCPETemplateReco::~PixelCPETemplateReco() {
     x.destroy();
 }
 
-PixelCPEBase::ClusterParam* PixelCPETemplateReco::createClusterParam(const SiPixelCluster& cl) const {
-  return new ClusterParamTemplate(cl);
+std::unique_ptr<PixelCPEBase::ClusterParam> PixelCPETemplateReco::createClusterParam(const SiPixelCluster& cl) const {
+  return std::make_unique<ClusterParamTemplate>(cl);
 }
 
 //------------------------------------------------------------------
@@ -542,4 +542,12 @@ LocalError PixelCPETemplateReco::localError(DetParam const& theDetParam, Cluster
   //cout << endl;
 
   return LocalError(xerr * xerr, 0, yerr * yerr);
+}
+
+void PixelCPETemplateReco::fillPSetDescription(edm::ParameterSetDescription& desc) {
+  desc.add<int>("barrelTemplateID", 0);
+  desc.add<int>("forwardTemplateID", 0);
+  desc.add<int>("directoryWithTemplates", 0);
+  desc.add<int>("speed", -2);
+  desc.add<bool>("UseClusterSplitter", false);
 }

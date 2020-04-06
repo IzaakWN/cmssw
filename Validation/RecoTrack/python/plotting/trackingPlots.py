@@ -371,7 +371,9 @@ _tuning = PlotGroup("tuning", [
     Plot("chi2_prob", stat=True, normalizeToUnitArea=True, drawStyle="hist", xtitle="Prob(#chi^{2})"),
     Plot("chi2mean", title="", xtitle="#eta", ytitle="< #chi^{2} / ndf >", ymin=[0, 0.5], ymax=[2, 2.5, 3, 5],
          fallback={"name": "chi2_vs_eta", "profileX": True}),
-    Plot("ptres_vs_eta_Mean", scale=100, title="", xtitle="TP #eta (PCA to beamline)", ytitle="< #delta p_{T} / p_{T} > (%)", ymin=_minResidualPt, ymax=_maxResidualPt)
+    Plot("ptres_vs_eta_Mean", scale=100, title="", xtitle="TP #eta (PCA to beamline)", ytitle="< #delta p_{T} / p_{T} > (%)", ymin=_minResidualPt, ymax=_maxResidualPt),
+    Plot("chi2mean_vs_pt", title="", xtitle="p_{T}", ytitle="< #chi^{2} / ndf >", ymin=[0, 0.5], ymax=[2, 2.5, 3, 5], xlog=True, fallback={"name": "chi2_vs_pt", "profileX": True}),
+    Plot("ptres_vs_pt_Mean", title="", xtitle="p_{T}", ytitle="< #delta p_{T}/p_{T} > (%)", scale=100, ymin=_minResidualPt, ymax=_maxResidualPt,xlog=True)
 ])
 _common = {"stat": True, "fit": True, "normalizeToUnitArea": True, "drawStyle": "hist", "drawCommand": "", "xmin": -10, "xmax": 10, "ylog": True, "ymin": 5e-5, "ymax": [0.01, 0.05, 0.1, 0.2, 0.5, 0.8, 1.025], "ratioUncertainty": False}
 _pulls = PlotGroup("pulls", [
@@ -399,6 +401,13 @@ _resolutionsPt = PlotGroup("resolutionsPt", [
     Plot("dxyres_vs_pt_Sigma", ytitle="#sigma(#delta d_{xy}) (cm)", **_common),
     Plot("dzres_vs_pt_Sigma", ytitle="#sigma(#delta d_{z}) (cm)", **_common),
     Plot("ptres_vs_pt_Sigma", ytitle="#sigma(#delta p_{T}/p_{T})", **_common),
+])
+_common = {"title": "", "ylog": True, "xtitle": "TP #Phi (PCA to beamline)", "ymin": _minMaxResol, "ymax": _minMaxResol}
+_resolutionsPhi = PlotGroup("resolutionsPhi", [
+    Plot("dxyres_vs_phi_Sigma", ytitle="#sigma(#delta d_{xy}) (cm)", **_common),
+    Plot("dzres_vs_phi_Sigma", ytitle="#sigma(#delta d_{z}) (cm)", **_common),
+    Plot("phires_vs_phi_Sigma", ytitle="#sigma(#delta #phi) (rad)", **_common),
+    Plot("ptres_vs_phi_Sigma", ytitle="#sigma(#delta p_{T}/p_{T})", **_common),
 ])
 
 ## Extended set of plots
@@ -1218,6 +1227,7 @@ _recoBasedPlots = [
     _hitsAndPt,
     _pulls,
     _resolutionsEta,
+    _resolutionsPhi,
     _resolutionsPt,
     _tuning,
 ]
@@ -1240,6 +1250,7 @@ _seedingBuildingPlots = _simBasedPlots + [
 _buildingExtendedPlots = [
     _pulls,
     _resolutionsEta,
+    _resolutionsPhi,
     _resolutionsPt,
     _tuning,
 ]
@@ -1465,6 +1476,9 @@ _iterations = [
                          "initialStepClassifier3",
                          "initialStep",
                          "initialStepSelector"],
+              building=["initialStepTrackCandidatesMkFitInput",
+                        "initialStepTrackCandidatesMkFit",
+                        "initialStepTrackCandidates"],
               other=["firstStepPrimaryVerticesUnsorted",
                      "initialStepTrackRefsForJets",
                      "caloTowerForTrk",

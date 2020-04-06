@@ -35,7 +35,7 @@ int main(int argc, char** argv) {
     connPool.setMessageVerbosity(coral::Debug);
     Session session = connPool.createSession(connectionString);
     session.transaction().start();
-    IOVProxy iov = session.readIov("runinfo_31X_hlt", true);
+    IOVProxy iov = session.readIov("runinfo_31X_hlt");
     std::cout << "Loaded size=" << iov.loadedSize() << std::endl;
     session.transaction().commit();
   } catch (const std::exception& e) {

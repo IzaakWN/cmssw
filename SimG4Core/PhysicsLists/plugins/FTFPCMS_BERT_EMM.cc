@@ -1,5 +1,6 @@
 #include "FTFPCMS_BERT_EMM.h"
 #include "SimG4Core/PhysicsLists/interface/CMSEmStandardPhysicsLPM.h"
+#include "SimG4Core/PhysicsLists/interface/CMSHadronPhysicsFTFP_BERT.h"
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 
 #include "G4DecayPhysics.hh"
@@ -10,20 +11,18 @@
 #include "G4NeutronTrackingCut.hh"
 #include "G4HadronicProcessStore.hh"
 
-#include "G4DataQuestionaire.hh"
 #include "G4HadronPhysicsFTFP_BERT.hh"
 
 FTFPCMS_BERT_EMM::FTFPCMS_BERT_EMM(const edm::ParameterSet& p) : PhysicsList(p) {
-  G4DataQuestionaire it(photon);
-
   int ver = p.getUntrackedParameter<int>("Verbosity", 0);
   bool emPhys = p.getUntrackedParameter<bool>("EMPhysics", true);
   bool hadPhys = p.getUntrackedParameter<bool>("HadPhysics", true);
   bool tracking = p.getParameter<bool>("TrackingCut");
   double timeLimit = p.getParameter<double>("MaxTrackTime") * CLHEP::ns;
-  edm::LogInfo("PhysicsList") << "You are using the simulation engine: "
-                              << "FTFP_BERT_EMM \n Flags for EM Physics " << emPhys << ", for Hadronic Physics "
-                              << hadPhys << " and tracking cut " << tracking << "   t(ns)= " << timeLimit / CLHEP::ns;
+  edm::LogVerbatim("PhysicsList") << "You are using the simulation engine: "
+                                  << "FTFP_BERT_EMM: \n Flags for EM Physics: " << emPhys
+                                  << "; Hadronic Physics: " << hadPhys << "; tracking cut: " << tracking
+                                  << "; time limit(ns)= " << timeLimit / CLHEP::ns;
 
   if (emPhys) {
     // EM Physics

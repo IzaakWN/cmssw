@@ -25,7 +25,7 @@
 #include <sstream>
 
 EcalDQMonitorTask::EcalDQMonitorTask(edm::ParameterSet const& _ps)
-    : DQMEDAnalyzer(),
+    : DQMOneLumiEDAnalyzer(),
       ecaldqm::EcalDQMonitor(_ps),
       schedule_(),
       allowMissingCollections_(_ps.getUntrackedParameter<bool>("allowMissingCollections")),
@@ -52,7 +52,7 @@ EcalDQMonitorTask::EcalDQMonitorTask(edm::ParameterSet const& _ps)
       },
       "initialization");
 
-  edm::ParameterSet const& collectionTags(_ps.getUntrackedParameterSet("collectionTags"));
+  edm::ParameterSet const& collectionTags(_ps.getParameterSet("collectionTags"));
 
   for (unsigned iCol(0); iCol < ecaldqm::nCollections; iCol++) {
     if (hasTaskToRun[iCol])
@@ -90,7 +90,7 @@ void EcalDQMonitorTask::fillDescriptions(edm::ConfigurationDescriptions& _descs)
 
   edm::ParameterSetDescription collectionTags;
   collectionTags.addWildcardUntracked<edm::InputTag>("*");
-  desc.addUntracked("collectionTags", collectionTags);
+  desc.add("collectionTags", collectionTags);
 
   desc.addUntracked<bool>("allowMissingCollections", true);
   desc.addUntracked<double>("resetInterval", 0.);
@@ -113,29 +113,23 @@ void EcalDQMonitorTask::dqmBeginRun(edm::Run const& _run, edm::EventSetup const&
     lastResetTime_ = time(nullptr);
 }
 
-void EcalDQMonitorTask::endRun(edm::Run const& _run, edm::EventSetup const& _es) {
-  if (lastResetTime_ != 0)
-    executeOnWorkers_([](ecaldqm::DQWorker* worker) { static_cast<ecaldqm::DQWorkerTask*>(worker)->recoverStats(); },
-                      "recoverStats");
-
+void EcalDQMonitorTask::dqmEndRun(edm::Run const& _run, edm::EventSetup const& _es) {
   ecaldqmEndRun(_run, _es);
 
   executeOnWorkers_([](ecaldqm::DQWorker* worker) { worker->releaseMEs(); }, "releaseMEs", "releasing histograms");
 }
 
-void EcalDQMonitorTask::beginLuminosityBlock(edm::LuminosityBlock const& _lumi, edm::EventSetup const& _es) {
+void EcalDQMonitorTask::dqmBeginLuminosityBlock(edm::LuminosityBlock const& _lumi, edm::EventSetup const& _es) {
   ecaldqmBeginLuminosityBlock(_lumi, _es);
 }
 
-void EcalDQMonitorTask::endLuminosityBlock(edm::LuminosityBlock const& _lumi, edm::EventSetup const& _es) {
+void EcalDQMonitorTask::dqmEndLuminosityBlock(edm::LuminosityBlock const& _lumi, edm::EventSetup const& _es) {
   ecaldqmEndLuminosityBlock(_lumi, _es);
 
   if (lastResetTime_ != 0 && (time(nullptr) - lastResetTime_) / 3600. > resetInterval_) {
     if (verbosity_ > 0)
       edm::LogInfo("EcalDQM") << moduleName_ << ": Soft-resetting the histograms";
-    executeOnWorkers_([](ecaldqm::DQWorker* worker) { static_cast<ecaldqm::DQWorkerTask*>(worker)->softReset(); },
-                      "softReset");
-
+    // TODO: soft-reset is no longer supported.
     lastResetTime_ = time(nullptr);
   }
 }

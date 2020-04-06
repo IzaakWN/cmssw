@@ -20,6 +20,10 @@
 #include <tbb/enumerable_thread_specific.h>
 #include <tbb/task_scheduler_observer.h>
 
+// JSON headers
+#include <nlohmann/json_fwd.hpp>
+using json = nlohmann::json;
+
 // CMSSW headers
 #include "FWCore/ServiceRegistry/interface/ActivityRegistry.h"
 #include "FWCore/ServiceRegistry/interface/Service.h"
@@ -214,8 +218,11 @@ private:
   public:
     Resources();
     void reset();
+
     Resources& operator+=(Resources const& other);
+    Resources& operator+=(struct AtomicResources const& other);
     Resources operator+(Resources const& other) const;
+    Resources operator+(struct AtomicResources const& other) const;
 
   public:
     boost::chrono::nanoseconds time_thread;
@@ -225,6 +232,7 @@ private:
   };
 
   // atomic version of Resources
+  // Note: the structure as a whole is *not* atomic, only the individual fields are
   struct AtomicResources {
   public:
     AtomicResources();
@@ -233,7 +241,9 @@ private:
 
     AtomicResources& operator=(AtomicResources const& other);
     AtomicResources& operator+=(AtomicResources const& other);
+    AtomicResources& operator+=(Resources const& other);
     AtomicResources operator+(AtomicResources const& other) const;
+    Resources operator+(Resources const& other) const;
 
   public:
     std::atomic<boost::chrono::nanoseconds::rep> time_thread;
@@ -242,10 +252,13 @@ private:
     std::atomic<uint64_t> deallocated;
   };
 
+  // resources associated to each module, path, process and job
+
   struct ResourcesPerModule {
   public:
     ResourcesPerModule() noexcept;
     void reset() noexcept;
+
     ResourcesPerModule& operator+=(ResourcesPerModule const& other);
     ResourcesPerModule operator+(ResourcesPerModule const& other) const;
 
@@ -312,7 +325,7 @@ private:
   class PlotsPerElement {
   public:
     PlotsPerElement() = default;
-    void book(dqm::reco::DQMStore::ConcurrentBooker&,
+    void book(dqm::reco::DQMStore::IBooker&,
               std::string const& name,
               std::string const& title,
               PlotRanges const& ranges,
@@ -324,21 +337,21 @@ private:
 
   private:
     // resources spent in the module
-    ConcurrentMonitorElement time_thread_;       // TH1F
-    ConcurrentMonitorElement time_thread_byls_;  // TProfile
-    ConcurrentMonitorElement time_real_;         // TH1F
-    ConcurrentMonitorElement time_real_byls_;    // TProfile
-    ConcurrentMonitorElement allocated_;         // TH1F
-    ConcurrentMonitorElement allocated_byls_;    // TProfile
-    ConcurrentMonitorElement deallocated_;       // TH1F
-    ConcurrentMonitorElement deallocated_byls_;  // TProfile
+    dqm::reco::MonitorElement* time_thread_;       // TH1F
+    dqm::reco::MonitorElement* time_thread_byls_;  // TProfile
+    dqm::reco::MonitorElement* time_real_;         // TH1F
+    dqm::reco::MonitorElement* time_real_byls_;    // TProfile
+    dqm::reco::MonitorElement* allocated_;         // TH1F
+    dqm::reco::MonitorElement* allocated_byls_;    // TProfile
+    dqm::reco::MonitorElement* deallocated_;       // TH1F
+    dqm::reco::MonitorElement* deallocated_byls_;  // TProfile
   };
 
   // plots associated to each path or endpath
   class PlotsPerPath {
   public:
     PlotsPerPath() = default;
-    void book(dqm::reco::DQMStore::ConcurrentBooker&,
+    void book(dqm::reco::DQMStore::IBooker&,
               std::string const&,
               ProcessCallGraph const&,
               ProcessCallGraph::PathType const&,
@@ -360,18 +373,18 @@ private:
     //   be better suited than a double, but there is no "TH1L" in ROOT.
 
     // how many times each module and their dependencies has run
-    ConcurrentMonitorElement module_counter_;  // TH1D
+    dqm::reco::MonitorElement* module_counter_;  // TH1D
     // resources spent in each module and their dependencies
-    ConcurrentMonitorElement module_time_thread_total_;  // TH1D
-    ConcurrentMonitorElement module_time_real_total_;    // TH1D
-    ConcurrentMonitorElement module_allocated_total_;    // TH1D
-    ConcurrentMonitorElement module_deallocated_total_;  // TH1D
+    dqm::reco::MonitorElement* module_time_thread_total_;  // TH1D
+    dqm::reco::MonitorElement* module_time_real_total_;    // TH1D
+    dqm::reco::MonitorElement* module_allocated_total_;    // TH1D
+    dqm::reco::MonitorElement* module_deallocated_total_;  // TH1D
   };
 
   class PlotsPerProcess {
   public:
     PlotsPerProcess(ProcessCallGraph::ProcessType const&);
-    void book(dqm::reco::DQMStore::ConcurrentBooker&,
+    void book(dqm::reco::DQMStore::IBooker&,
               ProcessCallGraph const&,
               ProcessCallGraph::ProcessType const&,
               PlotRanges const& event_ranges,
@@ -392,7 +405,7 @@ private:
   class PlotsPerJob {
   public:
     PlotsPerJob(ProcessCallGraph const& job, std::vector<GroupOfModules> const& groups);
-    void book(dqm::reco::DQMStore::ConcurrentBooker&,
+    void book(dqm::reco::DQMStore::IBooker&,
               ProcessCallGraph const&,
               std::vector<GroupOfModules> const&,
               PlotRanges const& event_ranges,
@@ -465,6 +478,13 @@ private:
   const bool print_run_summary_;    // print the time spent in each process, path and module for each run
   const bool print_job_summary_;    // print the time spent in each process, path and module for the whole job
 
+  // JSON configuration
+  //const bool write_json_per_event_;
+  //const bool write_json_per_ls_;
+  //const bool write_json_per_run_;
+  const bool write_json_summary_;
+  const std::string json_filename_;
+
   // dqm configuration
   bool enable_dqm_;  // non const, depends on the availability of the DQMStore
   const bool enable_dqm_bymodule_;
@@ -514,6 +534,13 @@ private:
   void printSummaryLine(T& out, Resources const& data, uint64_t events, uint64_t active, std::string const& label) const;
 
   template <typename T>
+  void printSummaryLine(T& out, AtomicResources const& data, uint64_t events, std::string const& label) const;
+
+  template <typename T>
+  void printSummaryLine(
+      T& out, AtomicResources const& data, uint64_t events, uint64_t active, std::string const& label) const;
+
+  template <typename T>
   void printPathSummaryLine(
       T& out, Resources const& data, Resources const& total, uint64_t events, std::string const& label) const;
 
@@ -522,6 +549,13 @@ private:
 
   template <typename T>
   void printTransition(T& out, AtomicResources const& data, std::string const& label) const;
+
+  template <typename T>
+  json encodeToJSON(std::string const& type, std::string const& label, unsigned int events, T const& data) const;
+
+  json encodeToJSON(edm::ModuleDescription const& module, ResourcesPerModule const& data) const;
+
+  void writeSummaryJSON(ResourcesPerJob const& data, std::string const& filename) const;
 
   // check if this is the first process being signalled
   bool isFirstSubprocess(edm::StreamContext const&);

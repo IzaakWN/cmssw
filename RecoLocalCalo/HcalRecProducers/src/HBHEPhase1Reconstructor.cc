@@ -418,8 +418,7 @@ void HBHEPhase1Reconstructor::processData(const Collection& coll,
     // in the database but can still come in the QIE11DataFrame
     // in the laser calibs, etc.
     const HcalSubdetector subdet = cell.subdet();
-    if (!(subdet == HcalSubdetector::HcalBarrel || subdet == HcalSubdetector::HcalEndcap ||
-          subdet == HcalSubdetector::HcalOuter))
+    if (!(subdet == HcalSubdetector::HcalBarrel || subdet == HcalSubdetector::HcalEndcap))
       continue;
 
     // Check if the database tells us to drop this channel
@@ -444,30 +443,65 @@ void HBHEPhase1Reconstructor::processData(const Collection& coll,
     const HcalQIEShape* shape = cond.getHcalShape(channelCoder);
     const HcalCoderDb coder(*channelCoder, *shape);
 
-    // needed for the dark current in the M2
+    const bool saveEffectivePeds = channelInfo->hasEffectivePedestals();
     const HcalSiPMParameter& siPMParameter(*cond.getHcalSiPMParameter(cell));
-    const double darkCurrent = siPMParameter.getDarkCurrent();
     const double fcByPE = siPMParameter.getFCByPE();
-    const double lambda = cond.getHcalSiPMCharacteristics()->getCrossTalk(siPMParameter.getType());
+    double darkCurrent = 0.;
+    double lambda = 0.;
+    if (!saveEffectivePeds || saveInfos_) {
+      // needed for the dark current in the M2 in alternative of the effectivePed
+      darkCurrent = siPMParameter.getDarkCurrent();
+      lambda = cond.getHcalSiPMCharacteristics()->getCrossTalk(siPMParameter.getType());
+    }
 
     // ADC to fC conversion
     CaloSamples cs;
     coder.adc2fC(frame, cs);
 
     // Prepare to iterate over time slices
-    const bool saveEffectivePeds = channelInfo->hasEffectivePedestals();
     const int nRead = cs.size();
     const int maxTS = std::min(nRead, static_cast<int>(HBHEChannelInfo::MAXSAMPLES));
     const int soi = tsFromDB_ ? param_ts->firstSample() : frame.presamples();
     const RawChargeFromSample<DFrame> rcfs(sipmQTSShift_, sipmQNTStoSum_, cond, cell, cs, soi, frame, maxTS);
     int soiCapid = 4;
 
-    // Use only 8 TSs when there are 10 TSs
-    const int shiftOneTS = use8ts_ && maxTS == static_cast<int>(HBHEChannelInfo::MAXSAMPLES) ? 1 : 0;
-    const int nCycles = maxTS - shiftOneTS;
+    // Typical expected cases:
+    //   maxTS = 10, SOI = 4 (typical 10-TS situation, in data or MC)
+    //   maxTS = 10, SOI = 5 (new, for better modeling of SiPM noise in MC)
+    //   maxTS = 8,  SOI = 3 (typical 8-TS situation in data)
+    //
+    // We want to fill the HBHEChannelInfo object with either
+    // 8 or 10 time slices, depending on the maxTS value and
+    // on the "use8ts_" parameter setting. If we want 8 time
+    // slices in the HBHEChannelInfo, we want the SOI to fall
+    // on the time slice number 3. For now, this number is not
+    // expected to change and will be hardwired.
+    //
+    int nTSToCopy = maxTS;
+    int tsShift = 0;
+    if (maxTS > 8 && use8ts_) {
+      const int soiWanted = 3;
+
+      // We need to chop off the excess time slices
+      // and configure the TS shift for filling
+      // HBHEChannelInfo from the data frame.
+      nTSToCopy = 8;
+      tsShift = soi - soiWanted;
+
+      // Check that the shift will not result in
+      // accessing time slices out of bounds
+      if (tsShift < 0)
+        tsShift = 0;
+      else {
+        const int nExcessTS = nRead - nTSToCopy;
+        if (tsShift > nExcessTS)
+          tsShift = nExcessTS;
+      }
+    }
 
     // Go over time slices and fill the samples
-    for (int inputTS = shiftOneTS; inputTS < nCycles; ++inputTS) {
+    for (int copyTS = 0; copyTS < nTSToCopy; ++copyTS) {
+      const int inputTS = copyTS + tsShift;
       auto s(frame[inputTS]);
       const uint8_t adc = s.adc();
       const int capid = s.capid();
@@ -481,20 +515,18 @@ void HBHEPhase1Reconstructor::processData(const Collection& coll,
       const double rawCharge = rcfs.getRawCharge(cs[inputTS], calib.pedestal(capid));
       const float t = getTDCTimeFromSample(s);
       const float dfc = getDifferentialChargeGain(*channelCoder, *shape, adc, capid, channelInfo->hasTimeInfo());
-      const int fitTS = inputTS - shiftOneTS;
-      channelInfo->setSample(fitTS, adc, dfc, rawCharge, pedestal, pedestalWidth, gain, gainWidth, t);
+      channelInfo->setSample(copyTS, adc, dfc, rawCharge, pedestal, pedestalWidth, gain, gainWidth, t);
       if (inputTS == soi)
         soiCapid = capid;
     }
 
     // Fill the overall channel info items
-    const int maxFitTS = maxTS - 2 * shiftOneTS;
-    const int fitSoi = soi - shiftOneTS;
+    const int fitSoi = soi - tsShift;
     const int pulseShapeID = param_ts->pulseShapeID();
     const std::pair<bool, bool> hwerr = findHWErrors(frame, maxTS);
     channelInfo->setChannelInfo(cell,
                                 pulseShapeID,
-                                maxFitTS,
+                                nTSToCopy,
                                 fitSoi,
                                 soiCapid,
                                 darkCurrent,

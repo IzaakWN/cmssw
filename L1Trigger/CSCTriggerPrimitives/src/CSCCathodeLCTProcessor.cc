@@ -3,72 +3,6 @@
 #include <iomanip>
 #include <iostream>
 
-//-----------------
-// Static variables
-//-----------------
-
-const int CSCCathodeLCTProcessor::pattern2007_offset[CSCConstants::MAX_HALFSTRIPS_IN_PATTERN] = {
-    -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5,  -2, -1, 0,  1,  2, 0, -2, -1, 0, 1,
-    2,  -4, -3, -2, -1, 0, 1, 2, 3, 4, -5, -4, -3, -2, -1, 0, 1, 2,  3,  4, 5};
-
-const int CSCCathodeLCTProcessor::pattern2007[CSCConstants::NUM_CLCT_PATTERNS][CSCConstants::MAX_HALFSTRIPS_IN_PATTERN +
-                                                                               2] = {
-    {999, 999, 999, 999, 999, 999, 999, 999, 999, 999, 999, 999, 999, 999, 999, 999,
-     999,  // pid=0: no pattern found
-     999, 999, 999, 999, 999, 999, 999, 999, 999, 999, 999, 999, 999, 999, 999, 999,
-     999, 999, 999, 999, 999, 999, 999, 999, 999, -1,  0},
-    //-------------------------------------------------------------
-    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1,
-     2,  // pid=1: layer-OR trigger
-     3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, -1, 11},
-    //-------------------------------------------------------------
-    {999, 999, 999, 999, 999, 999, 999, 999, 0,   0,   0,   999, 999, 999, 1, 1,
-     2,  // pid=2: right-bending (large)
-     3,   3,   3,   999, 999, 4,   4,   4,   999, 999, 999, 999, 999, 999, 5, 5,
-     5,   999, 999, 999, 999, 999, 999, 999, 999, 0,   11},
-    //-------------------------------------------------------------
-    {0,   0,   0,   999, 999, 999, 999, 999, 999, 999, 999, 1, 1, 999, 999, 999,
-     2,  // pid=3: left-bending (large)
-     999, 999, 3,   3,   3,   999, 999, 999, 999, 999, 999, 4, 4, 4,   999, 999,
-     999, 999, 999, 999, 999, 999, 5,   5,   5,   1,   11},
-    //-------------------------------------------------------------
-    {999, 999, 999, 999, 999, 999, 999, 0,   0,   0,   999, 999, 999, 999, 1,   1,
-     2,  // pid=4: right-bending (medium)
-     3,   3,   999, 999, 999, 4,   4,   4,   999, 999, 999, 999, 999, 999, 999, 5,
-     5,   5,   999, 999, 999, 999, 999, 999, 999, 0,   9},
-    //-------------------------------------------------------------
-    {999, 0,   0,   0,   999, 999, 999, 999, 999, 999, 999, 1, 1, 999, 999, 999,
-     2,  // pid=5: left-bending (medium)
-     999, 999, 999, 3,   3,   999, 999, 999, 999, 999, 999, 4, 4, 4,   999, 999,
-     999, 999, 999, 999, 999, 5,   5,   5,   999, 1,   9},
-    //-------------------------------------------------------------
-    {999, 999, 999, 999, 999, 999, 0,   0,   0,   999, 999, 999, 999, 1,   1,   999,
-     2,  // pid=6: right-bending (medium)
-     999, 3,   3,   999, 999, 999, 999, 4,   4,   999, 999, 999, 999, 999, 999, 999,
-     5,   5,   5,   999, 999, 999, 999, 999, 999, 0,   7},
-    //-------------------------------------------------------------
-    {999, 999, 0,   0,   0,   999, 999, 999, 999, 999, 999, 999, 1,   1,   999, 999,
-     2,  // pid=7: left-bending (medium)
-     999, 999, 3,   3,   999, 999, 999, 999, 999, 999, 4,   4,   999, 999, 999, 999,
-     999, 999, 999, 999, 5,   5,   5,   999, 999, 1,   7},
-    //-------------------------------------------------------------
-    {999, 999, 999, 999, 999, 0,   0,   0,   999, 999, 999, 999, 999, 1,   1,   999,
-     2,  // pid=8: right-bending (small)
-     999, 3,   3,   999, 999, 999, 999, 4,   4,   4,   999, 999, 999, 999, 999, 999,
-     999, 5,   5,   5,   999, 999, 999, 999, 999, 0,   5},
-    //-------------------------------------------------------------
-    {999, 999, 999, 0, 0,   0,   999, 999, 999, 999, 999, 999, 1,   1,   999, 999,
-     2,  // pid=9: left-bending (small)
-     999, 999, 3,   3, 999, 999, 999, 999, 999, 4,   4,   4,   999, 999, 999, 999,
-     999, 999, 999, 5, 5,   5,   999, 999, 999, 1,   5},
-    //-------------------------------------------------------------
-    {999, 999, 999, 999, 0,   0,   0,   999, 999, 999, 999, 999, 999, 1,   999, 999,
-     2,  // pid=A: straight-through
-     999, 999, 3,   999, 999, 999, 999, 999, 4,   4,   4,   999, 999, 999, 999, 999,
-     999, 999, 5,   5,   5,   999, 999, 999, 999, 0,   3}
-    // pid's=B-F are not yet defined
-};
-
 // Default values of configuration parameters.
 const unsigned int CSCCathodeLCTProcessor::def_fifo_tbins = 12;
 const unsigned int CSCCathodeLCTProcessor::def_fifo_pretrig = 7;
@@ -123,6 +57,10 @@ CSCCathodeLCTProcessor::CSCCathodeLCTProcessor(unsigned endcap,
   // Verbosity level, set to 0 (no print) by default.
   infoV = clctParams_.getParameter<int>("verbosity");
 
+  use_run3_patterns_ = clctParams_.getParameter<bool>("useRun3Patterns");
+
+  use_comparator_codes_ = clctParams_.getParameter<bool>("useComparatorCodes");
+
   // Check and print configuration parameters.
   checkConfigParameters();
   if ((infoV > 0) && !config_dumped) {
@@ -137,6 +75,13 @@ CSCCathodeLCTProcessor::CSCCathodeLCTProcessor(unsigned endcap,
       stagger[i_layer] = 0;
     else
       stagger[i_layer] = 1;
+  }
+
+  // which patterns should we use?
+  if (use_run3_patterns_) {
+    clct_pattern_ = CSCPatternBank::clct_pattern_run3_;
+  } else {
+    clct_pattern_ = CSCPatternBank::clct_pattern_legacy_;
   }
 
   thePreTriggerDigis.clear();
@@ -222,77 +167,19 @@ void CSCCathodeLCTProcessor::checkConfigParameters() {
   static const unsigned int max_tmb_l1a_window_size = 1 << 4;
 
   // Checks.
-  if (fifo_tbins >= max_fifo_tbins) {
-    if (infoV >= 0)
-      edm::LogError("L1CSCTPEmulatorConfigError")
-          << "+++ Value of fifo_tbins, " << fifo_tbins << ", exceeds max allowed, " << max_fifo_tbins - 1 << " +++\n"
-          << "+++ Try to proceed with the default value, fifo_tbins=" << def_fifo_tbins << " +++\n";
-    fifo_tbins = def_fifo_tbins;
-  }
-  if (fifo_pretrig >= max_fifo_pretrig) {
-    if (infoV >= 0)
-      edm::LogError("L1CSCTPEmulatorConfigError")
-          << "+++ Value of fifo_pretrig, " << fifo_pretrig << ", exceeds max allowed, " << max_fifo_pretrig - 1
-          << " +++\n"
-          << "+++ Try to proceed with the default value, fifo_pretrig=" << def_fifo_pretrig << " +++\n";
-    fifo_pretrig = def_fifo_pretrig;
-  }
-  if (hit_persist >= max_hit_persist) {
-    if (infoV >= 0)
-      edm::LogError("L1CSCTPEmulatorConfigError")
-          << "+++ Value of hit_persist, " << hit_persist << ", exceeds max allowed, " << max_hit_persist - 1 << " +++\n"
-          << "+++ Try to proceed with the default value, hit_persist=" << def_hit_persist << " +++\n";
-    hit_persist = def_hit_persist;
-  }
-  if (drift_delay >= max_drift_delay) {
-    if (infoV >= 0)
-      edm::LogError("L1CSCTPEmulatorConfigError")
-          << "+++ Value of drift_delay, " << drift_delay << ", exceeds max allowed, " << max_drift_delay - 1 << " +++\n"
-          << "+++ Try to proceed with the default value, drift_delay=" << def_drift_delay << " +++\n";
-    drift_delay = def_drift_delay;
-  }
-  if (nplanes_hit_pretrig >= max_nplanes_hit_pretrig) {
-    if (infoV >= 0)
-      edm::LogError("L1CSCTPEmulatorConfigError")
-          << "+++ Value of nplanes_hit_pretrig, " << nplanes_hit_pretrig << ", exceeds max allowed, "
-          << max_nplanes_hit_pretrig - 1 << " +++\n"
-          << "+++ Try to proceed with the default value, nplanes_hit_pretrig=" << def_nplanes_hit_pretrig << " +++\n";
-    nplanes_hit_pretrig = def_nplanes_hit_pretrig;
-  }
-  if (nplanes_hit_pattern >= max_nplanes_hit_pattern) {
-    if (infoV >= 0)
-      edm::LogError("L1CSCTPEmulatorConfigError")
-          << "+++ Value of nplanes_hit_pattern, " << nplanes_hit_pattern << ", exceeds max allowed, "
-          << max_nplanes_hit_pattern - 1 << " +++\n"
-          << "+++ Try to proceed with the default value, nplanes_hit_pattern=" << def_nplanes_hit_pattern << " +++\n";
-    nplanes_hit_pattern = def_nplanes_hit_pattern;
-  }
-
-  if (pid_thresh_pretrig >= max_pid_thresh_pretrig) {
-    if (infoV >= 0)
-      edm::LogError("L1CSCTPEmulatorConfigError")
-          << "+++ Value of pid_thresh_pretrig, " << pid_thresh_pretrig << ", exceeds max allowed, "
-          << max_pid_thresh_pretrig - 1 << " +++\n"
-          << "+++ Try to proceed with the default value, pid_thresh_pretrig=" << def_pid_thresh_pretrig << " +++\n";
-    pid_thresh_pretrig = def_pid_thresh_pretrig;
-  }
-  if (min_separation >= max_min_separation) {
-    if (infoV >= 0)
-      edm::LogError("L1CSCTPEmulatorConfigError")
-          << "+++ Value of min_separation, " << min_separation << ", exceeds max allowed, " << max_min_separation - 1
-          << " +++\n"
-          << "+++ Try to proceed with the default value, min_separation=" << def_min_separation << " +++\n";
-    min_separation = def_min_separation;
-  }
-
-  if (tmb_l1a_window_size >= max_tmb_l1a_window_size) {
-    if (infoV > 0)
-      edm::LogError("L1CSCTPEmulatorConfigError")
-          << "+++ Value of tmb_l1a_window_size, " << tmb_l1a_window_size << ", exceeds max allowed, "
-          << max_tmb_l1a_window_size - 1 << " +++\n"
-          << "+++ Try to proceed with the default value, tmb_l1a_window_size=" << def_tmb_l1a_window_size << " +++\n";
-    tmb_l1a_window_size = def_tmb_l1a_window_size;
-  }
+  CSCBaseboard::checkConfigParameters(fifo_tbins, max_fifo_tbins, def_fifo_tbins, "fifo_tbins");
+  CSCBaseboard::checkConfigParameters(fifo_pretrig, max_fifo_pretrig, def_fifo_pretrig, "fifo_pretrig");
+  CSCBaseboard::checkConfigParameters(hit_persist, max_hit_persist, def_hit_persist, "hit_persist");
+  CSCBaseboard::checkConfigParameters(drift_delay, max_drift_delay, def_drift_delay, "drift_delay");
+  CSCBaseboard::checkConfigParameters(
+      nplanes_hit_pretrig, max_nplanes_hit_pretrig, def_nplanes_hit_pretrig, "nplanes_hit_pretrig");
+  CSCBaseboard::checkConfigParameters(
+      nplanes_hit_pattern, max_nplanes_hit_pattern, def_nplanes_hit_pattern, "nplanes_hit_pattern");
+  CSCBaseboard::checkConfigParameters(
+      pid_thresh_pretrig, max_pid_thresh_pretrig, def_pid_thresh_pretrig, "pid_thresh_pretrig");
+  CSCBaseboard::checkConfigParameters(min_separation, max_min_separation, def_min_separation, "min_separation");
+  CSCBaseboard::checkConfigParameters(
+      tmb_l1a_window_size, max_tmb_l1a_window_size, def_tmb_l1a_window_size, "tmb_l1a_window_size");
 }
 
 void CSCCathodeLCTProcessor::clear() {
@@ -645,7 +532,7 @@ std::vector<CSCCLCTDigi> CSCCathodeLCTProcessor::findLCTs(
 
   // 2 possible LCTs per CSC x 7 LCT quantities
   int keystrip_data[CSCConstants::MAX_CLCTS_PER_PROCESSOR][CLCT_NUM_QUANTITIES] = {{0}};
-  unsigned int pulse[CSCConstants::NUM_LAYERS][CSCConstants::NUM_HALF_STRIPS_7CFEBS];
+  PulseArray pulse;
 
   // Fire half-strip one-shots for hit_persist bx's (4 bx's by default).
   pulseExtension(halfstrip, maxHalfStrips, pulse);
@@ -743,7 +630,8 @@ std::vector<CSCCLCTDigi> CSCCathodeLCTProcessor::findLCTs(
           if (best_hs >= 0 && nhits[best_hs] >= nplanes_hit_pattern) {
             //ptn_trig = true;
             keystrip_data[ilct][CLCT_PATTERN] = best_pid[best_hs];
-            keystrip_data[ilct][CLCT_BEND] = pattern2007[best_pid[best_hs]][CSCConstants::MAX_HALFSTRIPS_IN_PATTERN];
+            keystrip_data[ilct][CLCT_BEND] =
+                clct_pattern_[best_pid[best_hs]][CSCConstants::NUM_LAYERS - 1][CSCConstants::CLCT_PATTERN_WIDTH];
             // Remove stagger if any.
             keystrip_data[ilct][CLCT_STRIP] = best_hs - stagger[CSCConstants::KEY_CLCT_LAYER - 1];
             keystrip_data[ilct][CLCT_BX] = first_bx;
@@ -818,7 +706,7 @@ std::vector<CSCCLCTDigi> CSCCathodeLCTProcessor::findLCTs(
 void CSCCathodeLCTProcessor::pulseExtension(
     const std::vector<int> time[CSCConstants::NUM_LAYERS][CSCConstants::NUM_HALF_STRIPS_7CFEBS],
     const int nStrips,
-    unsigned int pulse[CSCConstants::NUM_LAYERS][CSCConstants::NUM_HALF_STRIPS_7CFEBS]) {
+    PulseArray pulse) {
   static const unsigned int bits_in_pulse = 8 * sizeof(pulse[0][0]);
 
   // Clear pulse array.  This array will be used as a bit representation of
@@ -861,10 +749,7 @@ void CSCCathodeLCTProcessor::pulseExtension(
 }  // pulseExtension.
 
 // TMB-07 version.
-bool CSCCathodeLCTProcessor::preTrigger(
-    const unsigned int pulse[CSCConstants::NUM_LAYERS][CSCConstants::NUM_HALF_STRIPS_7CFEBS],
-    const int start_bx,
-    int& first_bx) {
+bool CSCCathodeLCTProcessor::preTrigger(const PulseArray pulse, const int start_bx, int& first_bx) {
   if (infoV > 1)
     LogTrace("CSCCathodeLCTProcessor") << "....................PreTrigger...........................";
 
@@ -899,7 +784,8 @@ bool CSCCathodeLCTProcessor::preTrigger(
 
           // write each pre-trigger to output
           nPreTriggers++;
-          const int bend = pattern2007[best_pid[hstrip]][CSCConstants::MAX_HALFSTRIPS_IN_PATTERN];
+          const int bend =
+              clct_pattern_[best_pid[hstrip]][CSCConstants::NUM_LAYERS - 1][CSCConstants::CLCT_PATTERN_WIDTH];
           const int halfstrip = hstrip % CSCConstants::NUM_HALF_STRIPS_PER_CFEB;
           const int cfeb = hstrip / CSCConstants::NUM_HALF_STRIPS_PER_CFEB;
           thePreTriggerDigis.push_back(CSCCLCTPreTriggerDigi(
@@ -921,10 +807,7 @@ bool CSCCathodeLCTProcessor::preTrigger(
 }  // preTrigger -- TMB-07 version.
 
 // TMB-07 version.
-bool CSCCathodeLCTProcessor::patternFinding(
-    const unsigned int pulse[CSCConstants::NUM_LAYERS][CSCConstants::NUM_HALF_STRIPS_7CFEBS],
-    const int nStrips,
-    const unsigned int bx_time) {
+bool CSCCathodeLCTProcessor::patternFinding(const PulseArray pulse, const int nStrips, const unsigned int bx_time) {
   if (bx_time >= fifo_tbins)
     return false;
 
@@ -953,7 +836,7 @@ bool CSCCathodeLCTProcessor::patternFinding(
   bool hit_layer[CSCConstants::NUM_LAYERS];
   for (int key_hstrip = stagger[CSCConstants::KEY_CLCT_LAYER - 1]; key_hstrip < nStrips; key_hstrip++) {
     // Loop over patterns and look for hits matching each pattern.
-    for (unsigned int pid = CSCConstants::NUM_CLCT_PATTERNS - 1; pid >= pid_thresh_pretrig; pid--) {
+    for (unsigned int pid = clct_pattern_.size() - 1; pid >= pid_thresh_pretrig; pid--) {
       layers_hit = 0;
       for (int ilayer = 0; ilayer < CSCConstants::NUM_LAYERS; ilayer++)
         hit_layer[ilayer] = false;
@@ -964,15 +847,18 @@ bool CSCCathodeLCTProcessor::patternFinding(
 
       // Loop over halfstrips in trigger pattern mask and calculate the
       // "absolute" halfstrip number for each.
-      for (int strip_num = 0; strip_num < CSCConstants::MAX_HALFSTRIPS_IN_PATTERN; strip_num++) {
-        int this_layer = pattern2007[pid][strip_num];
-        if (this_layer >= 0 && this_layer < CSCConstants::NUM_LAYERS) {
-          int this_strip = pattern2007_offset[strip_num] + key_hstrip;
+      for (int this_layer = 0; this_layer < CSCConstants::NUM_LAYERS; this_layer++) {
+        for (int strip_num = 0; strip_num < CSCConstants::CLCT_PATTERN_WIDTH; strip_num++) {
+          // ignore "0" half-strips in the pattern
+          if (clct_pattern_[pid][this_layer][strip_num] == 0)
+            continue;
+
+          int this_strip = CSCPatternBank::clct_pattern_offset_[strip_num] + key_hstrip;
           if (this_strip >= 0 && this_strip < nStrips) {
-            if (infoV > 3)
-              LogTrace("CSCCathodeLCTProcessor")
-                  << " In patternFinding: key_strip = " << key_hstrip << " pid = " << pid
-                  << " strip_num = " << strip_num << " layer = " << this_layer << " strip = " << this_strip;
+            if (infoV > 3) {
+              LogTrace("CSCCathodeLCTProcessor") << " In patternFinding: key_strip = " << key_hstrip << " pid = " << pid
+                                                 << " layer = " << this_layer << " strip = " << this_strip << std::endl;
+            }
             // Determine if "one shot" is high at this bx_time
             if (((pulse[this_layer][this_strip] >> bx_time) & 1) == 1) {
               if (hit_layer[this_layer] == false) {
@@ -980,8 +866,8 @@ bool CSCCathodeLCTProcessor::patternFinding(
                 layers_hit++;  // determines number of layers hit
               }
 
-              // find at what bx did pulse on this halsfstrip&layer have started
-              // use hit_pesrist constraint on how far back we can go
+              // find at what bx did pulse on this halsfstrip & layer have started
+              // use hit_persist constraint on how far back we can go
               int first_bx_layer = bx_time;
               for (unsigned int dbx = 0; dbx < hit_persist; dbx++) {
                 if (((pulse[this_layer][this_strip] >> (first_bx_layer - 1)) & 1) == 1)
@@ -1255,4 +1141,21 @@ std::vector<CSCCLCTDigi> CSCCathodeLCTProcessor::getCLCTs() const {
       tmpV.push_back(secondCLCT[bx]);
   }
   return tmpV;
+}
+
+// shift the BX from 7 to 8
+// the unpacked real data CLCTs have central BX at bin 7
+// however in simulation the central BX  is bin 8
+// to make a proper comparison with ALCTs we need
+// CLCT and ALCT to have the central BX in the same bin
+CSCCLCTDigi CSCCathodeLCTProcessor::getBestCLCT(int bx) const {
+  CSCCLCTDigi lct = bestCLCT[bx];
+  lct.setBX(lct.getBX() + alctClctOffset_);
+  return lct;
+}
+
+CSCCLCTDigi CSCCathodeLCTProcessor::getSecondCLCT(int bx) const {
+  CSCCLCTDigi lct = secondCLCT[bx];
+  lct.setBX(lct.getBX() + alctClctOffset_);
+  return lct;
 }

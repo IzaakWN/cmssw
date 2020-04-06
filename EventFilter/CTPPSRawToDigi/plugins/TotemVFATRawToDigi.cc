@@ -24,8 +24,8 @@
 #include "DataFormats/CTPPSDigi/interface/TotemFEDInfo.h"
 
 #include "CondFormats/DataRecord/interface/TotemReadoutRcd.h"
-#include "CondFormats/CTPPSReadoutObjects/interface/TotemDAQMapping.h"
-#include "CondFormats/CTPPSReadoutObjects/interface/TotemAnalysisMask.h"
+#include "CondFormats/PPSObjects/interface/TotemDAQMapping.h"
+#include "CondFormats/PPSObjects/interface/TotemAnalysisMask.h"
 
 #include "EventFilter/CTPPSRawToDigi/interface/SimpleVFATFrameCollection.h"
 #include "EventFilter/CTPPSRawToDigi/interface/RawDataUnpacker.h"
@@ -52,7 +52,7 @@ private:
 
   edm::EDGetTokenT<FEDRawDataCollection> fedDataToken;
 
-  ctpps::RawDataUnpacker rawDataUnpacker;
+  pps::RawDataUnpacker rawDataUnpacker;
   RawToDigiConverter rawToDigiConverter;
 
   template <typename DigiType>

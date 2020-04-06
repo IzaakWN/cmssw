@@ -272,7 +272,7 @@ bool HLTLevel1GTSeed::hltFilter(edm::Event& iEvent,
   }
 
   //
-  boost::uint16_t gtFinalOR = gtReadoutRecord->finalOR();
+  uint16_t gtFinalOR = gtReadoutRecord->finalOR();
   int physicsDaqPartition = 0;
   bool gtDecision = static_cast<bool>(gtFinalOR & (1 << physicsDaqPartition));
 
@@ -1371,8 +1371,7 @@ bool HLTLevel1GTSeed::seedsL1Extra(edm::Event& iEvent, trigger::TriggerFilterObj
               }
               includeTauJet = false;
             }
-          }
-
+          } break;
           case HfRingEtSums: {
             if (includeIsoTauJet) {
               edm::Handle<l1extra::L1JetParticleCollection> l1IsoTauJet;

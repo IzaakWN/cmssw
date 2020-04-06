@@ -21,6 +21,7 @@
 #include "FWCore/Framework/interface/global/OutputModuleBase.h"
 #include "FWCore/Framework/interface/one/OutputModuleBase.h"
 #include "FWCore/Framework/interface/limited/OutputModuleBase.h"
+#include "FWCore/Utilities/interface/thread_safety_macros.h"
 
 namespace {
   template <typename F>
@@ -84,14 +85,15 @@ namespace edm {
               mergeableRunProductMetadata,
               iTask]() mutable {
       std::exception_ptr ex;
-      try {
+      // Caught exception is propagated via WaitingTaskHolder
+      CMS_SA_ALLOW try {
         ServiceRegistry::Operate op(token);
         ParentContext parentContext(&globalContext);
         ModuleCallingContext mcc(desc);
         ModuleContextSentry moduleContextSentry(&mcc, parentContext);
         activityRegistry->preModuleWriteRunSignal_(globalContext, mcc);
-        auto sentry(make_sentry(activityRegistry, [&globalContext, &mcc](ActivityRegistry* activityRegistry) {
-          activityRegistry->postModuleWriteRunSignal_(globalContext, mcc);
+        auto sentry(make_sentry(activityRegistry, [&globalContext, &mcc](ActivityRegistry* ar) {
+          ar->postModuleWriteRunSignal_(globalContext, mcc);
         }));
         mod.doWriteRun(rp, &mcc, mergeableRunProductMetadata);
       } catch (...) {
@@ -116,15 +118,16 @@ namespace edm {
                                 processContext);
     auto t = [& mod = module(), &lbp, activityRegistry, token, globalContext, desc = &description(), iTask]() mutable {
       std::exception_ptr ex;
-      try {
+      // Caught exception is propagated via WaitingTaskHolder
+      CMS_SA_ALLOW try {
         ServiceRegistry::Operate op(token);
 
         ParentContext parentContext(&globalContext);
         ModuleCallingContext mcc(desc);
         ModuleContextSentry moduleContextSentry(&mcc, parentContext);
         activityRegistry->preModuleWriteLumiSignal_(globalContext, mcc);
-        auto sentry(make_sentry(activityRegistry, [&globalContext, &mcc](ActivityRegistry* activityRegistry) {
-          activityRegistry->postModuleWriteLumiSignal_(globalContext, mcc);
+        auto sentry(make_sentry(activityRegistry, [&globalContext, &mcc](ActivityRegistry* ar) {
+          ar->postModuleWriteLumiSignal_(globalContext, mcc);
         }));
         mod.doWriteLuminosityBlock(lbp, &mcc);
       } catch (...) {

@@ -9,6 +9,7 @@
 #include "SimGeneral/MixingModule/interface/DigiAccumulatorMixMod.h"
 #include "SimDataFormats/PileupSummaryInfo/interface/PileupMixingContent.h"
 #include "FWCore/Framework/interface/ESHandle.h"
+#include "FWCore/Framework/interface/ProducesCollector.h"
 
 class TrackerTopology;
 
@@ -18,7 +19,6 @@ namespace CLHEP {
 
 namespace edm {
   class ConsumesCollector;
-  class ProducerBase;
   class Event;
   class EventSetup;
   class ParameterSet;
@@ -44,7 +44,7 @@ class TrackerGeometry;
  */
 class SiStripDigitizer : public DigiAccumulatorMixMod {
 public:
-  explicit SiStripDigitizer(const edm::ParameterSet& conf, edm::ProducerBase& mixMod, edm::ConsumesCollector& iC);
+  explicit SiStripDigitizer(const edm::ParameterSet& conf, edm::ProducesCollector, edm::ConsumesCollector& iC);
 
   ~SiStripDigitizer() override;
 
@@ -85,6 +85,8 @@ private:
   const bool useConfFromDB;
   const bool zeroSuppression;
   const bool makeDigiSimLinks_;
+  const bool includeAPVSimulation_;
+  const double fracOfEventsToSimAPV_;
 
   ///< Whether or not to create the association to sim truth collection. Set in configuration.
   /** @brief Offset to add to the index of each sim hit to account for which crossing it's in.

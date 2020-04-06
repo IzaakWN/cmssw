@@ -26,7 +26,7 @@
 #include "Geometry/Records/interface/TrackerDigiGeometryRecord.h"
 #include "Geometry/Records/interface/TrackerTopologyRcd.h"
 #include "Geometry/TrackerGeometryBuilder/interface/StripGeomDetUnit.h"
-#include "Geometry/TrackerGeometryBuilder/interface/PixelGeomDetUnit.h"
+#include "Geometry/CommonDetUnit/interface/PixelGeomDetUnit.h"
 #include "Geometry/TrackerNumberingBuilder/interface/GeometricDet.h"
 #include "Geometry/CommonDetUnit/interface/TrackingGeometry.h"
 
@@ -394,7 +394,6 @@ SiStripGainFromCalibTree::SiStripGainFromCalibTree(const edm::ParameterSet& iCon
 
   // Gather DQM Service
   dbe = edm::Service<DQMStore>().operator->();
-  dbe->setVerbose(10);
 
   //Set the monitoring element tag and store
   dqm_tag_.reserve(7);

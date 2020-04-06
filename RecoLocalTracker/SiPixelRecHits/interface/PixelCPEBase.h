@@ -21,12 +21,13 @@
 #include "DataFormats/TrackerCommon/interface/TrackerTopology.h"
 #include "Geometry/TrackerGeometryBuilder/interface/TrackerGeometry.h"
 #include "Geometry/CommonDetUnit/interface/GeomDetType.h"
-#include "Geometry/TrackerGeometryBuilder/interface/PixelGeomDetUnit.h"
+#include "Geometry/CommonDetUnit/interface/PixelGeomDetUnit.h"
 #include "Geometry/CommonTopologies/interface/PixelTopology.h"
 #include "Geometry/CommonTopologies/interface/Topology.h"
 
 //--- For the configuration:
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
+#include "FWCore/ParameterSet/interface/ConfigurationDescriptions.h"
 
 #include "DataFormats/GeometryCommonDetAlgo/interface/MeasurementPoint.h"
 #include "DataFormats/GeometryCommonDetAlgo/interface/MeasurementError.h"
@@ -128,6 +129,8 @@ public:
                int flag = 0  // flag=0 for generic, =1 for templates
   );                         // NEW
 
+  static void fillPSetDescription(edm::ParameterSetDescription& desc);
+
   //--------------------------------------------------------------------------
   // Allow the magnetic field to be set/updated later.
   //--------------------------------------------------------------------------
@@ -144,7 +147,7 @@ public:
 #endif
 
     DetParam const& theDetParam = detParam(det);
-    ClusterParam* theClusterParam = createClusterParam(cl);
+    std::unique_ptr<ClusterParam> theClusterParam = createClusterParam(cl);
     setTheClu(theDetParam, *theClusterParam);
     computeAnglesFromDetPosition(theDetParam, *theClusterParam);
 
@@ -153,7 +156,6 @@ public:
     LocalError le = localError(theDetParam, *theClusterParam);
     SiPixelRecHitQuality::QualWordType rqw = rawQualityWord(*theClusterParam);
     auto tuple = std::make_tuple(lp, le, rqw);
-    delete theClusterParam;
 
     //std::cout<<" in PixelCPEBase:localParameters(all) - "<<lp.x()<<" "<<lp.y()<<std::endl;  //dk
     return tuple;
@@ -171,7 +173,7 @@ public:
 #endif
 
     DetParam const& theDetParam = detParam(det);
-    ClusterParam* theClusterParam = createClusterParam(cl);
+    std::unique_ptr<ClusterParam> theClusterParam = createClusterParam(cl);
     setTheClu(theDetParam, *theClusterParam);
     computeAnglesFromTrajectory(theDetParam, *theClusterParam, ltp);
 
@@ -180,14 +182,13 @@ public:
     LocalError le = localError(theDetParam, *theClusterParam);
     SiPixelRecHitQuality::QualWordType rqw = rawQualityWord(*theClusterParam);
     auto tuple = std::make_tuple(lp, le, rqw);
-    delete theClusterParam;
 
     //std::cout<<" in PixelCPEBase:localParameters(on track) - "<<lp.x()<<" "<<lp.y()<<std::endl;  //dk
     return tuple;
   }
 
 private:
-  virtual ClusterParam* createClusterParam(const SiPixelCluster& cl) const = 0;
+  virtual std::unique_ptr<ClusterParam> createClusterParam(const SiPixelCluster& cl) const = 0;
 
   //--------------------------------------------------------------------------
   // This is where the action happens.

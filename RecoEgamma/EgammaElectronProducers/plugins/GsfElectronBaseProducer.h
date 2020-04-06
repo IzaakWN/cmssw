@@ -3,7 +3,6 @@
 #define GsfElectronBaseProducer_h
 
 #include "RecoEgamma/EgammaElectronAlgos/interface/GsfElectronAlgo.h"
-#include "RecoEgamma/EgammaElectronAlgos/interface/GsfElectronAlgoHeavyObjectCache.h"
 
 #include "DataFormats/EgammaCandidates/interface/GsfElectronFwd.h"
 #include "DataFormats/EgammaCandidates/interface/GsfElectron.h"
@@ -24,23 +23,22 @@ namespace edm {
 #include "RecoEgamma/EgammaElectronAlgos/interface/GsfElectronAlgo.h"
 #include "DataFormats/Common/interface/Handle.h"
 
-class GsfElectronBaseProducer : public edm::stream::EDProducer<edm::GlobalCache<gsfAlgoHelpers::HeavyObjectCache>> {
+class GsfElectronBaseProducer : public edm::stream::EDProducer<edm::GlobalCache<GsfElectronAlgo::HeavyObjectCache>> {
 public:
   static void fillDescriptions(edm::ConfigurationDescriptions&);
 
-  explicit GsfElectronBaseProducer(const edm::ParameterSet&, const gsfAlgoHelpers::HeavyObjectCache*);
+  explicit GsfElectronBaseProducer(const edm::ParameterSet&, const GsfElectronAlgo::HeavyObjectCache*);
   ~GsfElectronBaseProducer() override;
 
-  static std::unique_ptr<gsfAlgoHelpers::HeavyObjectCache> initializeGlobalCache(const edm::ParameterSet& conf) {
-    return std::make_unique<gsfAlgoHelpers::HeavyObjectCache>(conf);
+  static std::unique_ptr<GsfElectronAlgo::HeavyObjectCache> initializeGlobalCache(const edm::ParameterSet& conf) {
+    return std::make_unique<GsfElectronAlgo::HeavyObjectCache>(conf);
   }
 
-  static void globalEndJob(gsfAlgoHelpers::HeavyObjectCache const*) {}
+  static void globalEndJob(GsfElectronAlgo::HeavyObjectCache const*) {}
 
   // ------------ method called to produce the data  ------------
   void produce(edm::Event& event, const edm::EventSetup& setup) override {
-    reco::GsfElectronCollection electrons;
-    algo_->completeElectrons(electrons, event, setup, globalCache());
+    auto electrons = algo_->completeElectrons(event, setup, globalCache());
     fillEvent(electrons, event);
   }
 
@@ -48,19 +46,14 @@ protected:
   std::unique_ptr<GsfElectronAlgo> algo_;
 
   void beginEvent(edm::Event&, const edm::EventSetup&);
-  void fillEvent(reco::GsfElectronCollection& electrons, edm::Event& event);
-  const edm::OrphanHandle<reco::GsfElectronCollection>& orphanHandle() const { return orphanHandle_; }
+  const edm::OrphanHandle<reco::GsfElectronCollection> fillEvent(reco::GsfElectronCollection& electrons,
+                                                                 edm::Event& event);
 
   // configurables
-  GsfElectronAlgo::InputTagsConfiguration inputCfg_;
+  GsfElectronAlgo::Tokens inputCfg_;
   GsfElectronAlgo::StrategyConfiguration strategyCfg_;
   const GsfElectronAlgo::CutsConfiguration cutsCfg_;
-  const GsfElectronAlgo::CutsConfiguration cutsCfgPflow_;
   ElectronHcalHelper::Configuration hcalCfg_;
-  ElectronHcalHelper::Configuration hcalCfgPflow_;
-
-  // used to make some provenance checks
-  edm::EDGetTokenT<edm::ValueMap<float>> pfMVA_;
 
 private:
   bool isPreselected(reco::GsfElectron const& ele) const;
@@ -71,9 +64,13 @@ private:
   // check expected configuration of previous modules
   bool ecalSeedingParametersChecked_;
   void checkEcalSeedingParameters(edm::ParameterSet const&);
-  edm::OrphanHandle<reco::GsfElectronCollection> orphanHandle_;
 
   const edm::EDPutTokenT<reco::GsfElectronCollection> electronPutToken_;
+
+  const edm::EDGetTokenT<reco::GsfPFRecTrackCollection> gsfPfRecTracksTag_;
+
+  const bool gedElectronMode_;
+  const bool useGsfPfRecTracks_;
 };
 
 #endif

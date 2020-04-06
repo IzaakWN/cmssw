@@ -34,6 +34,7 @@ private:
   typedef std::vector<reco::DeepBoostedJetTagInfo> DeepBoostedJetTagInfoCollection;
   typedef reco::VertexCompositePtrCandidateCollection SVCollection;
   typedef reco::VertexCollection VertexCollection;
+  typedef edm::View<reco::Candidate> CandidateView;
 
   void beginStream(edm::StreamID) override {}
   void produce(edm::Event &, const edm::EventSetup &) override;
@@ -42,14 +43,15 @@ private:
   void fillParticleFeatures(DeepBoostedJetFeatures &fts, const reco::Jet &jet);
   void fillSVFeatures(DeepBoostedJetFeatures &fts, const reco::Jet &jet);
 
-  const bool has_puppi_weighted_daughters_;
   const double jet_radius_;
   const double min_jet_pt_;
   const double min_pt_for_track_properties_;
+  const bool use_puppiP4_;
 
   edm::EDGetTokenT<edm::View<reco::Jet>> jet_token_;
   edm::EDGetTokenT<VertexCollection> vtx_token_;
   edm::EDGetTokenT<SVCollection> sv_token_;
+  edm::EDGetTokenT<CandidateView> pfcand_token_;
 
   bool use_puppi_value_map_;
   bool use_pvasq_value_map_;
@@ -60,6 +62,7 @@ private:
 
   edm::Handle<VertexCollection> vtxs_;
   edm::Handle<SVCollection> svs_;
+  edm::Handle<CandidateView> pfcands_;
   edm::ESHandle<TransientTrackBuilder> track_builder_;
   edm::Handle<edm::ValueMap<float>> puppi_value_map_;
   edm::Handle<edm::ValueMap<int>> pvasq_value_map_;
@@ -81,10 +84,13 @@ const std::vector<std::string> DeepBoostedJetTagInfoProducer::particle_features_
     "pfcand_dphidphi",      "pfcand_dxydxy",         "pfcand_dzdz",         "pfcand_dxydz",
     "pfcand_dphidxy",       "pfcand_dlambdadz",      "pfcand_btagEtaRel",   "pfcand_btagPtRatio",
     "pfcand_btagPParRatio", "pfcand_btagSip2dVal",   "pfcand_btagSip2dSig", "pfcand_btagSip3dVal",
-    "pfcand_btagSip3dSig",  "pfcand_btagJetDistVal",
+    "pfcand_btagSip3dSig",  "pfcand_btagJetDistVal", "pfcand_mask",         "pfcand_pt_log_nopuppi",
+    "pfcand_e_log_nopuppi"
+
 };
 
 const std::vector<std::string> DeepBoostedJetTagInfoProducer::sv_features_{
+    "sv_mask",
     "sv_phirel",
     "sv_etarel",
     "sv_deltaR",
@@ -103,13 +109,14 @@ const std::vector<std::string> DeepBoostedJetTagInfoProducer::sv_features_{
 };
 
 DeepBoostedJetTagInfoProducer::DeepBoostedJetTagInfoProducer(const edm::ParameterSet &iConfig)
-    : has_puppi_weighted_daughters_(iConfig.getParameter<bool>("has_puppi_weighted_daughters")),
-      jet_radius_(iConfig.getParameter<double>("jet_radius")),
+    : jet_radius_(iConfig.getParameter<double>("jet_radius")),
       min_jet_pt_(iConfig.getParameter<double>("min_jet_pt")),
       min_pt_for_track_properties_(iConfig.getParameter<double>("min_pt_for_track_properties")),
+      use_puppiP4_(iConfig.getParameter<bool>("use_puppiP4")),
       jet_token_(consumes<edm::View<reco::Jet>>(iConfig.getParameter<edm::InputTag>("jets"))),
       vtx_token_(consumes<VertexCollection>(iConfig.getParameter<edm::InputTag>("vertices"))),
       sv_token_(consumes<SVCollection>(iConfig.getParameter<edm::InputTag>("secondary_vertices"))),
+      pfcand_token_(consumes<CandidateView>(iConfig.getParameter<edm::InputTag>("pf_candidates"))),
       use_puppi_value_map_(false),
       use_pvasq_value_map_(false) {
   const auto &puppi_value_map_tag = iConfig.getParameter<edm::InputTag>("puppi_value_map");
@@ -133,12 +140,13 @@ DeepBoostedJetTagInfoProducer::~DeepBoostedJetTagInfoProducer() {}
 void DeepBoostedJetTagInfoProducer::fillDescriptions(edm::ConfigurationDescriptions &descriptions) {
   // pfDeepBoostedJetTagInfos
   edm::ParameterSetDescription desc;
-  desc.add<bool>("has_puppi_weighted_daughters", true);
   desc.add<double>("jet_radius", 0.8);
   desc.add<double>("min_jet_pt", 150);
   desc.add<double>("min_pt_for_track_properties", -1);
+  desc.add<bool>("use_puppiP4", true);
   desc.add<edm::InputTag>("vertices", edm::InputTag("offlinePrimaryVertices"));
   desc.add<edm::InputTag>("secondary_vertices", edm::InputTag("inclusiveCandidateSecondaryVertices"));
+  desc.add<edm::InputTag>("pf_candidates", edm::InputTag("particleFlow"));
   desc.add<edm::InputTag>("jets", edm::InputTag("ak8PFJetsPuppi"));
   desc.add<edm::InputTag>("puppi_value_map", edm::InputTag("puppi"));
   desc.add<edm::InputTag>("vertex_associator", edm::InputTag("primaryVertexAssociation", "original"));
@@ -148,8 +156,7 @@ void DeepBoostedJetTagInfoProducer::fillDescriptions(edm::ConfigurationDescripti
 void DeepBoostedJetTagInfoProducer::produce(edm::Event &iEvent, const edm::EventSetup &iSetup) {
   auto output_tag_infos = std::make_unique<DeepBoostedJetTagInfoCollection>();
 
-  edm::Handle<edm::View<reco::Jet>> jets;
-  iEvent.getByToken(jet_token_, jets);
+  auto jets = iEvent.getHandle(jet_token_);
 
   iEvent.getByToken(vtx_token_, vtxs_);
   if (vtxs_->empty()) {
@@ -161,6 +168,8 @@ void DeepBoostedJetTagInfoProducer::produce(edm::Event &iEvent, const edm::Event
   pv_ = &vtxs_->at(0);
 
   iEvent.getByToken(sv_token_, svs_);
+
+  iEvent.getByToken(pfcand_token_, pfcands_);
 
   iSetup.get<TransientTrackRecord>().get("TransientTrackBuilder", track_builder_);
 
@@ -252,19 +261,19 @@ void DeepBoostedJetTagInfoProducer::fillParticleFeatures(DeepBoostedJetFeatures 
     // remove particles w/ extremely low puppi weights
     if ((puppiWgt(cand)) < 0.01)
       continue;
-    daughters.push_back(cand);
+    // get the original reco/packed candidate not scaled by the puppi weight
+    daughters.push_back(pfcands_->ptrAt(cand.key()));
   }
-  // sort by (Puppi-weighted) pt
-  if (!has_puppi_weighted_daughters_) {
+  if (use_puppiP4_) {
+    // sort by Puppi-weighted pt
     std::sort(daughters.begin(),
               daughters.end(),
               [&puppi_wgt_cache](const reco::CandidatePtr &a, const reco::CandidatePtr &b) {
                 return puppi_wgt_cache.at(a.key()) * a->pt() > puppi_wgt_cache.at(b.key()) * b->pt();
               });
   } else {
-    std::sort(daughters.begin(), daughters.end(), [](const reco::CandidatePtr &a, const reco::CandidatePtr &b) {
-      return a->pt() > b->pt();
-    });
+    // sort by original pt (not Puppi-weighted)
+    std::sort(daughters.begin(), daughters.end(), [](const auto &a, const auto &b) { return a->pt() > b->pt(); });
   }
 
   // reserve space
@@ -281,12 +290,8 @@ void DeepBoostedJetTagInfoProducer::fillParticleFeatures(DeepBoostedJetFeatures 
     const auto *packed_cand = dynamic_cast<const pat::PackedCandidate *>(&(*cand));
     const auto *reco_cand = dynamic_cast<const reco::PFCandidate *>(&(*cand));
 
-    auto puppiP4 = cand->p4();
+    auto candP4 = use_puppiP4_ ? puppi_wgt_cache.at(cand.key()) * cand->p4() : cand->p4();
     if (packed_cand) {
-      if (!has_puppi_weighted_daughters_) {
-        puppiP4 *= puppi_wgt_cache.at(cand.key());
-      }
-
       float hcal_fraction = 0.;
       if (packed_cand->pdgId() == 1 || packed_cand->pdgId() == 130) {
         hcal_fraction = packed_cand->hcalFraction();
@@ -349,14 +354,18 @@ void DeepBoostedJetTagInfoProducer::fillParticleFeatures(DeepBoostedJetFeatures 
 
     // basic kinematics
     fts.fill("pfcand_puppiw", puppi_wgt_cache.at(cand.key()));
-    fts.fill("pfcand_phirel", reco::deltaPhi(puppiP4, jet));
-    fts.fill("pfcand_etarel", etasign * (puppiP4.eta() - jet.eta()));
-    fts.fill("pfcand_deltaR", reco::deltaR(puppiP4, jet));
-    fts.fill("pfcand_abseta", std::abs(puppiP4.eta()));
+    fts.fill("pfcand_phirel", reco::deltaPhi(candP4, jet));
+    fts.fill("pfcand_etarel", etasign * (candP4.eta() - jet.eta()));
+    fts.fill("pfcand_deltaR", reco::deltaR(candP4, jet));
+    fts.fill("pfcand_abseta", std::abs(candP4.eta()));
 
-    fts.fill("pfcand_ptrel_log", catch_infs(std::log(puppiP4.pt() / jet.pt()), -99));
-    fts.fill("pfcand_erel_log", catch_infs(std::log(puppiP4.energy() / jet.energy()), -99));
-    fts.fill("pfcand_pt_log", catch_infs(std::log(puppiP4.pt()), -99));
+    fts.fill("pfcand_ptrel_log", catch_infs(std::log(candP4.pt() / jet.pt()), -99));
+    fts.fill("pfcand_erel_log", catch_infs(std::log(candP4.energy() / jet.energy()), -99));
+    fts.fill("pfcand_pt_log", catch_infs(std::log(candP4.pt()), -99));
+
+    fts.fill("pfcand_mask", 1);
+    fts.fill("pfcand_pt_log_nopuppi", catch_infs(std::log(cand->pt()), -99));
+    fts.fill("pfcand_e_log_nopuppi", catch_infs(std::log(cand->energy()), -99));
 
     double minDR = 999;
     for (const auto &sv : *svs_) {
@@ -396,14 +405,14 @@ void DeepBoostedJetTagInfoProducer::fillParticleFeatures(DeepBoostedJetFeatures 
 
       TrackInfoBuilder trkinfo(track_builder_);
       trkinfo.buildTrackInfo(&(*cand), jet_dir, jet_ref_track_dir, *pv_);
-      fts.fill("pfcand_btagEtaRel", trkinfo.getTrackEtaRel());
-      fts.fill("pfcand_btagPtRatio", trkinfo.getTrackPtRatio());
-      fts.fill("pfcand_btagPParRatio", trkinfo.getTrackPParRatio());
-      fts.fill("pfcand_btagSip2dVal", trkinfo.getTrackSip2dVal());
-      fts.fill("pfcand_btagSip2dSig", trkinfo.getTrackSip2dSig());
-      fts.fill("pfcand_btagSip3dVal", trkinfo.getTrackSip3dVal());
-      fts.fill("pfcand_btagSip3dSig", trkinfo.getTrackSip3dSig());
-      fts.fill("pfcand_btagJetDistVal", trkinfo.getTrackJetDistVal());
+      fts.fill("pfcand_btagEtaRel", catch_infs(trkinfo.getTrackEtaRel()));
+      fts.fill("pfcand_btagPtRatio", catch_infs(trkinfo.getTrackPtRatio()));
+      fts.fill("pfcand_btagPParRatio", catch_infs(trkinfo.getTrackPParRatio()));
+      fts.fill("pfcand_btagSip2dVal", catch_infs(trkinfo.getTrackSip2dVal()));
+      fts.fill("pfcand_btagSip2dSig", catch_infs(trkinfo.getTrackSip2dSig()));
+      fts.fill("pfcand_btagSip3dVal", catch_infs(trkinfo.getTrackSip3dVal()));
+      fts.fill("pfcand_btagSip3dSig", catch_infs(trkinfo.getTrackSip3dSig()));
+      fts.fill("pfcand_btagJetDistVal", catch_infs(trkinfo.getTrackJetDistVal()));
     } else {
       fts.fill("pfcand_normchi2", 999);
 
@@ -451,6 +460,7 @@ void DeepBoostedJetTagInfoProducer::fillSVFeatures(DeepBoostedJetFeatures &fts, 
 
   for (const auto *sv : jetSVs) {
     // basic kinematics
+    fts.fill("sv_mask", 1);
     fts.fill("sv_phirel", reco::deltaPhi(*sv, jet));
     fts.fill("sv_etarel", etasign * (sv->eta() - jet.eta()));
     fts.fill("sv_deltaR", reco::deltaR(*sv, jet));

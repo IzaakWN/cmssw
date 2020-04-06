@@ -92,7 +92,7 @@ defaultOptions.nConcurrentLumis = '1'
 def dumpPython(process,name):
     theObject = getattr(process,name)
     if isinstance(theObject,cms.Path) or isinstance(theObject,cms.EndPath) or isinstance(theObject,cms.Sequence):
-        return "process."+name+" = " + theObject.dumpPython("process")
+        return "process."+name+" = " + theObject.dumpPython()
     elif isinstance(theObject,_Module) or isinstance(theObject,cms.ESProducer):
         return "process."+name+" = " + theObject.dumpPython()+"\n"
     else:
@@ -143,7 +143,7 @@ def filesFromDASQuery(query,option="",s=None):
         if count!=0:
             print('Sleeping, then retrying DAS')
             time.sleep(100)
-        p = Popen('dasgoclient %s --query "%s"'%(option,query), stdout=PIPE,shell=True)
+        p = Popen('dasgoclient %s --query "%s"'%(option,query), stdout=PIPE,shell=True, universal_newlines=True)
         pipe=p.stdout.read()
         tupleP = os.waitpid(p.pid, 0)
         eC=tupleP[1]
@@ -899,7 +899,7 @@ class ConfigBuilder(object):
         if self._options.customise_commands:
             import string
             for com in self._options.customise_commands.split('\\n'):
-                com=string.lstrip(com)
+                com=com.lstrip()
                 self.executeAndRemember(com)
                 final_snippet +='\n'+com
 
@@ -1110,7 +1110,7 @@ class ConfigBuilder(object):
             self.RECOBEFMIXDefaultCFF = 'FastSimulation.Configuration.Reconstruction_BefMix_cff'
             self.RECOBEFMIXDefaultSeq = 'reconstruction_befmix'
             self.NANODefaultSeq = 'nanoSequenceFS'
-            self.DQMOFFLINEDefaultCFF="FastSimulation.Configuration.DQMOfflineMC_cff"
+            self.DQMOFFLINEDefaultCFF="DQMOffline.Configuration.DQMOfflineFS_cff"
 
         # Mixing
         if self._options.pileup=='default':
@@ -1915,7 +1915,7 @@ class ConfigBuilder(object):
 
 
     def expandMapping(self,seqList,mapping,index=None):
-        maxLevel=20
+        maxLevel=30
         level=0
         while '@' in repr(seqList) and level<maxLevel:
             level+=1
@@ -1964,8 +1964,12 @@ class ConfigBuilder(object):
                 #will get in the schedule, smoothly
                 getattr(self.process,pathName).insert(0,self.process.genstepfilter)
 
+
         pathName='dqmofflineOnPAT_step'
         for (i,sequence) in enumerate(postSequenceList):
+	    #Fix needed to avoid duplication of sequences not defined in autoDQM or without a PostDQM
+            if (sequenceList[i]==postSequenceList[i]):
+                      continue
             if (i!=0):
                 pathName='dqmofflineOnPAT_%d_step'%(i)
 
@@ -1996,6 +2000,8 @@ class ConfigBuilder(object):
         for name in harvestingList:
             if not name in harvestingConfig.__dict__:
                 print(name,"is not a possible harvesting type. Available are",harvestingConfig.__dict__.keys())
+                # trigger hard error, like for other sequence types
+                getattr(self.process, name)
                 continue
             harvestingstream = getattr(harvestingConfig,name)
             if isinstance(harvestingstream,cms.Path):
@@ -2228,6 +2234,8 @@ class ConfigBuilder(object):
             self.pythonCfgCode +="process.options.numberOfThreads=cms.untracked.uint32("+self._options.nThreads+")\n"
             self.pythonCfgCode +="process.options.numberOfStreams=cms.untracked.uint32("+self._options.nStreams+")\n"
             self.pythonCfgCode +="process.options.numberOfConcurrentLuminosityBlocks=cms.untracked.uint32("+self._options.nConcurrentLumis+")\n"
+            if int(self._options.nConcurrentLumis) > 1:
+              self.pythonCfgCode +="if hasattr(process, 'DQMStore'): process.DQMStore.assertLegacySafe=cms.untracked.bool(False)\n"
             self.process.options.numberOfThreads=cms.untracked.uint32(int(self._options.nThreads))
             self.process.options.numberOfStreams=cms.untracked.uint32(int(self._options.nStreams))
             self.process.options.numberOfConcurrentLuminosityBlocks=cms.untracked.uint32(int(self._options.nConcurrentLumis))
