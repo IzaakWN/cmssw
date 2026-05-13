@@ -1,5 +1,14 @@
 import FWCore.ParameterSet.Config as cms
 
+# user options
+from argparse import ArgumentParser
+parser = ArgumentParser()
+parser.add_argument("inputFile", nargs=1, default="file:step3.root",
+                    metavar='FILE', help="Input file, default=%(default)r" )
+parser.add_argument('-c', "--collapse", action='store_true', help="Enable collapse mode" )
+parser.add_argument('-t', "--tag", default='', help="tag for out put file" )
+args = parser.parse_args()
+
 process = cms.Process("TRUTHGRAPH")
 
 process.load("FWCore.MessageService.MessageLogger_cfi")
@@ -15,7 +24,7 @@ process.maxEvents = cms.untracked.PSet(
 process.source = cms.Source(
     "PoolSource",
     fileNames=cms.untracked.vstring(
-        "file:step3.root"
+        args.inputFile #"file:step3.root"
     )
 )
 
@@ -35,7 +44,7 @@ process.truthGraphProducer = cms.EDProducer(
 process.truthGraphDumper = cms.EDAnalyzer(
     "TruthGraphDumper",
     src=cms.InputTag("truthGraphProducer"),
-    dotFile=cms.string("truthgraph.dot"),
+    dotFile=cms.string(f"truthgraph{args.tag}.dot"), # output file
     maxNodes=cms.uint32(20000),
     maxEdgesPerNode=cms.uint32(50),
     simTracks=cms.InputTag("g4SimHits"),
@@ -53,7 +62,7 @@ process.truthLogicalGraphProducer = cms.EDProducer(
     genEventHepMC=cms.InputTag("generatorSmeared"),
     motherPdgId=cms.int32(0),
     mergeGenSimVertices=cms.bool(True),
-    collapseIntermediateGenParticles=cms.bool(True),
+    collapseIntermediateGenParticles=cms.bool(args.collapse),
 )
 
 process.simHitToRecHitMapProducer = cms.EDProducer(
@@ -96,9 +105,7 @@ process.truthLogicalGraphDumper = cms.EDAnalyzer(
     src=cms.InputTag("truthLogicalGraphProducer"),
     rawSrc=cms.InputTag("truthGraphProducer"),
     hitIndex=cms.InputTag("truthLogicalGraphHitIndexProducer"),
-
-    dotFile=cms.string("truthlogicalgraph.dot"),
-
+    dotFile=cms.string(f"truthlogicalgraph{args.tag}.dot"), # output file
     maxParticles=cms.uint32(20000),
     maxVertices=cms.uint32(20000),
     maxEdgesPerNode=cms.uint32(300),
