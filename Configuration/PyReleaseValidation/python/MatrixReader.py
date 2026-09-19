@@ -15,6 +15,27 @@ class MatrixException(Exception):
 
 class MatrixReader(object):
 
+    # allowed values of workflow sets (--what)
+    ALLOWED_SETS = [
+        'standard' ,
+        'highstats',
+        'pileup',
+        'generator',
+        'extendedgen',
+        'production',
+        'ged',
+        'upgrade',
+        'cleanedupgrade',
+        'gpu',
+        '2017',
+        'Run4',
+        'identity',
+        'machine',
+        'premix',
+        'nano',
+        'data_highstats'
+    ]
+
     def __init__(self, opt):
 
         self.reset(opt.what)
@@ -39,65 +60,50 @@ class MatrixReader(object):
         #the actual WorkFlow objects
         self.workFlows = []
         self.nameList  = {}
-        
-        self.filesPrefMap = {'relval_standard' : 'std-' ,
-                             'relval_highstats': 'hi-'  ,
-                             'relval_pileup': 'PU-'  ,
-                             'relval_generator': 'gen-',
-                             'relval_extendedgen': 'genExt-',
-                             'relval_production': 'prod-'  ,
-                             'relval_ged': 'ged-',
-                             'relval_upgrade':'upg-',
-                             'relval_cleanedupgrade':'clnupg-',
-                             'relval_gpu':'gpu-',
-                             'relval_2017':'2017-',
-                             'relval_Run4':'Run4-',
-                             'relval_identity':'id-',
-                             'relval_machine': 'mach-',
-                             'relval_premix': 'premix-',
-                             'relval_nano':'nano-',
-                             'relval_data_highstats':'data-'
-                             }
 
-        self.files = ['relval_standard' ,
-                      'relval_highstats',
-                      'relval_pileup',
-                      'relval_generator',
-                      'relval_extendedgen',
-                      'relval_production',
-                      'relval_ged',
-                      'relval_upgrade',
-                      'relval_cleanedupgrade',
-                      'relval_gpu',
-                      'relval_2017',
-                      'relval_Run4',
-                      'relval_identity',
-                      'relval_machine',
-                      'relval_premix',
-                      'relval_nano',
-                      'relval_data_highstats'
-                      ]
-        self.filesDefault = {'relval_standard':True ,
-                             'relval_highstats':True ,
-                             'relval_pileup':True,
-                             'relval_generator':True,
-                             'relval_extendedgen':True,
-                             'relval_production':True,
-                             'relval_ged':True,
-                             'relval_upgrade':False,
-                             'relval_cleanedupgrade':False,
-                             'relval_gpu':False,
-                             'relval_2017':True,
-                             'relval_Run4':True,
-                             'relval_identity':False,
-                             'relval_machine':True,
-                             'relval_premix':True,
-                             'relval_nano':True,
-                             'relval_data_highstats':False
-                             }
+        self.files = [ 'relval_'+s for s in self.ALLOWED_SETS ]
+        self.filesPrefMap = {
+            'relval_standard' : 'std-' ,
+            'relval_highstats': 'hi-'  ,
+            'relval_pileup': 'PU-'  ,
+            'relval_generator': 'gen-',
+            'relval_extendedgen': 'genExt-',
+            'relval_production': 'prod-'  ,
+            'relval_ged': 'ged-',
+            'relval_upgrade':'upg-',
+            'relval_cleanedupgrade':'clnupg-',
+            'relval_gpu':'gpu-',
+            'relval_2017':'2017-',
+            'relval_Run4':'Run4-',
+            'relval_identity':'id-',
+            'relval_machine': 'mach-',
+            'relval_premix': 'premix-',
+            'relval_nano':'nano-',
+            'relval_data_highstats':'data-'
+        }
+
+        self.filesDefault = {
+            'relval_standard':True ,
+            'relval_highstats':True ,
+            'relval_pileup':True,
+            'relval_generator':True,
+            'relval_extendedgen':True,
+            'relval_production':True,
+            'relval_ged':True,
+            'relval_upgrade':False,
+            'relval_cleanedupgrade':False,
+            'relval_gpu':False,
+            'relval_2017':True,
+            'relval_Run4':True,
+            'relval_identity':False,
+            'relval_machine':True,
+            'relval_premix':True,
+            'relval_nano':True,
+            'relval_data_highstats':False
+        }
 
         self.relvalModule = None
-        
+
         return
 
     def makeCmd(self, step):

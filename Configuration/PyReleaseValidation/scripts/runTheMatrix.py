@@ -7,7 +7,7 @@ from Configuration.PyReleaseValidation.MatrixReader import MatrixReader
 from Configuration.PyReleaseValidation.MatrixRunner import MatrixRunner
 from Configuration.PyReleaseValidation.MatrixInjector import MatrixInjector,performInjectionOptionTest
 from Configuration.PyReleaseValidation.MatrixUtil import cleanComputeCapabilities
-from Configuration.PyReleaseValidation.relval_Run4 import prefixDet
+from Configuration.PyReleaseValidation.PredefinedWorkFlows import PredefinedWorkFlows
 # ================================================================================
 
 def showRaw(opt):
@@ -57,131 +57,8 @@ def runSelected(opt):
 
 if __name__ == '__main__':
 
-    #this can get out of here
-    predefinedSet={
-        # See README for further details
-        'run1_run2' : [
-            ###### MC (generated from scratch or from RelVal)
-            # Run1
-            5.1,        # TTbar_8TeV_TuneCUETP8M1       FastSim
-            8,          # RelValBeamHalo                Cosmics
-            9.0,        # RelValHiggs200ChargedTaus
-            25,         # RelValTTbar
-            101.0,      # SingleElectronE120EHCAL       + ECALHCAL.customise + fullMixCustomize_cff.setCrossingFrameOn
-
-            # Run2
-            7.3,        # UndergroundCosmicSPLooseMu
-            1306.0,     # RelValSingleMuPt1_UP15
-            1330,       # RelValZMM_13
-            135.4,      # ZEE_13TeV_TuneCUETP8M1
-
-            ###### pp Data
-            ## Run1
-            4.22,       # Run2011A  Cosmics
-            4.53,       # Run2012B  Photon                      miniAODs
-            1000,       # Run2011A  MinimumBias Prompt          RecoTLR.customisePrompt
-            1001,       # Run2011A  MinimumBias                 Data+Express
-            ## Run2
-            136.731,    # Run2016B SinglePhoton
-            136.793,    # Run2017C DoubleEG
-            136.874,    # Run2018C EGamma
-        ],
-
-        'run3' : [
-            ###### MC (generated from scratch or from RelVals)
-            # Run3
-            11634.0,    # TTbar_14TeV                   2021
-            13234.0,    # RelValTTbar_14TeV             2021 FastsSim
-            12434.0,    # RelValTTbar_14TeV             2023
-            12834.0,    # RelValTTbar_14TeV             2024
-            12846.0,    # RelValZEE_13                  2024
-            16834.0,    # RelValTTbar_14TeV             2025
-            17034.96,   # RelValTTbar_14TeV             2025 Hybrid PU
-            14034.0,    # RelValTTbar_14TeV             Run3_2023_FastSim
-            18434.0,    # RelValTTbar_14TeV             2026
-
-            ###### pp Data
-            ## Run3
-            # 2021
-            139.001,    # Run2021  MinimumBias                  Commissioning2021
-
-            # 2022
-            2022.0010001,     # Run2022C JetHT
-
-            # 2023
-            2023.0020001,     # Run2023D JetMET0
-
-            # 2024
-            2024.0000001,      # Run2024B ZeroBias
-            2024.0010001,      # Run2024C JetMET0
-            2024.0020001,      # Run2024D EGamma0
-            2024.0030001,      # Run2024E DisplacedJet
-            2024.0040001,      # Run2024F ParkingDoubleMuonLowMass0
-            2024.0050001,      # Run2024G BTagMu
-            2024.0060001,      # Run2024H Muon0
-            2024.0070001,      # Run2024I Tau
-
-            # 2025
-            2025.0000002,     # Run2025B ZeroBias                       noPAT
-            2025.0010001,     # Run2025C JetMET0
-        ],
-
-        'phase2' : [
-            ###### MC (generated from scratch or from RelVals)
-            # Phase2
-            prefixDet+34.0,	# RelValTTbar_14TeV                     phase2_realistic_T35        ExtendedRun4D127         (Phase-2 baseline)
-            prefixDet+234.0,	# RelValTTbar_14TeV                     phase2_realistic_T35        ExtendedRun4D127         AVE_200_BX_25ns	(Phase-2 baseline with PU) 
-            prefixDet+34.911,	# TTbar_14TeV_TuneCP5                   phase2_realistic_T35        DD4hepExtendedRun4D127   DD4Hep (HLLHC14TeV BeamSpot)
-            #prefixDet+234.999, # RelValTTbar_14TeV (PREMIX)            phase2_realistic_T35        ExtendedRun4D127         AVE_50_BX_25ns_m3p3 COMMENT: reads old format file
-            prefixDet+96.0,     # RelValCloseByPGun_CE_E_Front_120um    phase2_realistic_T35        ExtendedRun4D127
-            prefixDet+100.0,    # RelValCloseByPGun_CE_H_Coarse_Scint   phase2_realistic_T35        ExtendedRun4D127
-            #23234.0,           # Need new workflow with HFNose
-            prefixDet+34.75,    # RelValTTbar_14TeV                     phase2_realistic_T35        ExtendedRun4D127         (Phase-2 baseline -  but using timing menu, and only up to step 2)
-        ],
-
-        'heavyIons' : [
-            ###### Heavy Ions
-            ## Data
-            # Run2
-            140.56,    # HIRun2018A HIHardProbes                    Run2_2018_pp_on_AA
-            ## MC
-        ],
-
-        'jetmc': [5.1, 13, 15, 25, 38, 39], #MC
-        'metmc' : [5.1, 15, 25, 37, 38, 39], #MC
-        'muonmc' : [5.1, 124.4, 124.5, 20, 21, 22, 23, 25, 30], #MC
-
-        'ph2_hlt' : [prefixDet+34.75,    # HLT phase-2 timing menu
-                     prefixDet+34.7501,  # HLT phase-2 tracking-only menu
-                     prefixDet+34.7502,  # HLT phase-2 tracking menu with tracking ntuple
-                     prefixDet+34.7503,  # HLT phase-2 menu, CPU vs. GPU validation
-                     prefixDet+34.751,   # HLT phase-2 timing menu Alpaka variant
-                     prefixDet+34.7521,  # HLT phase-2 timing menu ticlv5TrackLinkGNN variant
-                     prefixDet+34.7522,  # HLT phase-2 timing menu mtd_at_hlt variant
-                     prefixDet+34.753,   # HLT phase-2 timing menu legacy tracking
-                     prefixDet+34.754,   # HLT phase-2 timing menu legacy tracking with Patatrack quads
-                     prefixDet+34.755,   # HLT phase-2 timing menu LST building variant
-                     prefixDet+34.756,   # HLT phase-2 timing menu trimmed tracking
-                     prefixDet+34.757,   # HLT phase-2 timing menu mkFit fitting variant
-                     prefixDet+34.758,   # HLT phase-2 timing menu ticl_barrel variant
-                     prefixDet+34.759,   # HLT phase-2 menu, with NANO:@Phase2HLT
-                     prefixDet+34.7591,  # HLT phase-2 menu, with NANO:@Phase2HLTVal
-                     prefixDet+34.7592,  # HLT phase-2 menu, with NANO:@Phase2HLT + DQM
-                     prefixDet+34.77,    # HLT phase-2 NGT Scouting menu
-                     prefixDet+34.771,   # HLT phase-2 NGT Scouting menu, Alpaka, TICL-Barrel
-                     prefixDet+34.772,   # HLT phase-2 NGT Scouting menu, with NANO:@NGTScouting
-                     prefixDet+34.7721,  # HLT phase-2 NGT Scouting menu, with NANO:@NGTScouting + DQM
-                     prefixDet+34.773,   # HLT phase-2 NGT Scouting menu, with NANO:@NGTScoutingVal
-                     prefixDet+34.774,   # HLT phase-2 NGT Scouting menu, with NANO:@NGTScoutingVal+@Phase2L1DPGwithGen
-                     prefixDet+34.775],  # HLT phase-2 NGT Scouting menu, Phase2CAExtension&LSTT5 as GeneralTracks
-    }
-
-    predefinedSet['limited'] = (
-        predefinedSet['run1_run2'] +
-        predefinedSet['run3'] +
-        predefinedSet['phase2'] +
-        predefinedSet['heavyIons']
-    )
+    # predefined workflows
+    predefinedSet = PredefinedWorkFlows()
 
     import argparse
     usage = 'usage: runTheMatrix.py --show -s '
@@ -279,7 +156,7 @@ if __name__ == '__main__':
                         action='store_true')
 
     parser.add_argument('-l','--list',
-                        help='Comma separated list of workflow to be shown or ran. Possible keys are also '+str(predefinedSet.keys())+'. and wild card like muon, or mc',
+                        help=f'Comma separated list of workflow to be shown or ran. Possible keys are also {', '.join(predefinedSet.keys())}. and wild card like muon, or mc',
                         dest='testList',
                         default=None)
 
@@ -299,7 +176,7 @@ if __name__ == '__main__':
                         default=None)
 
     parser.add_argument('-w','--what',
-                        help='Specify the set to be used. Argument must be the name of a set (standard, pileup,...) or multiple sets separated by commas (--what standard,pileup )',
+                        help=f'Specify the set to be used. Argument must be the name of a set (standard, pileup,...) or multiple sets separated by commas (--what standard,pileup ). Available options: {', '.join(MatrixReader.ALLOWED_SETS)}',
                         dest='what',
                         default='all')
 
@@ -309,13 +186,13 @@ if __name__ == '__main__':
                         default=False)
 
     parser.add_argument('--maxSteps',
-                        help='Only run maximum on maxSteps. Used when we are only interested in first n steps.',
+                        help='Only run maximum on maxSteps. Used when we are only interested in first n steps',
                         dest='maxSteps',
                         default=9999,
                         type=int)
 
     parser.add_argument('--fromScratch',
-                        help='Comma separated list of wf to be run without recycling. all is not supported as default.',
+                        help='Comma separated list of wf to be run without recycling. all is not supported as default',
                         dest='fromScratch',
                         type=lambda x: x.split(','),
                         default=None)
@@ -547,7 +424,7 @@ if __name__ == '__main__':
       os.environ["CMSSW_USE_IBEOS"]="true"
     if opt.restricted:
         print('Deprecated, please use -l limited')
-        if opt.testList:            opt.testList+=',limited'
+        if opt.testList: opt.testList+=',limited'
         else:            opt.testList='limited'
 
     def stepOrIndex(s):
@@ -567,7 +444,7 @@ if __name__ == '__main__':
             mapped=False
             for k in predefinedSet:
                 if k.lower().startswith(entry.lower()) or k.lower().endswith(entry.lower()):
-                    testList.extend(predefinedSet[k])
+                    testList.extend(predefinedSet[k]) # slow first time
                     mapped=True
                     break
             if not mapped:
@@ -597,16 +474,13 @@ if __name__ == '__main__':
                 cmd.Cmd.__init__(self)
                 self.opt_ = opt
                 self.matrices_ = {}
-                tmp = MatrixReader(self.opt_)
                 self.processes_ = dict()
-                for what in tmp.files:
-                    what = what.replace("relval_", "")
-                    self.opt_.what = what
-                    self.matrices_[what] = MatrixReader(self.opt_)
-                    self.matrices_[what].prepare(
-                        self.opt_.useInput, self.opt_.refRel, self.opt_.fromScratch
-                    )
-                os.system("clear")
+                user_what = opt.what
+                for what in MatrixReader.ALLOWED_SETS:
+                    if user_what not in ['all',what]:
+                        continue # speed up interactive mode
+                    self.do_loadWorkflow(what)
+                #os.system("clear")
 
             def do_clear(self, arg):
                 """Clear the screen, put prompt at the top"""
@@ -626,13 +500,46 @@ if __name__ == '__main__':
                     if is_pipe:
                         sys.exit(1)
 
+            def complete_loadWorkflow(self, text, line, start_idx, end_idx):
+                if text and len(text) > 0:
+                    return [t for t in MatrixReader.ALLOWED_SETS if t.startswith(text)]
+                else:
+                    return MatrixReader.ALLOWED_SETS
+
+            def _getWorkflowSets(self):
+                loaded = list(self.matrices_.keys())
+                unloaded = [s for s in MatrixReader.ALLOWED_SETS if s not in loaded]
+                return loaded, unloaded
+
+            def do_loadWorkflow(self,arg):
+                for what in arg.split():
+                    self.opt_.what = what
+                    self.matrices_[what] = MatrixReader(self.opt_)
+                    self.matrices_[what].prepare(
+                        self.opt_.useInput, self.opt_.refRel, self.opt_.fromScratch
+                    )
+
+            def help_loadWorkflow(self):
+                loaded, unloaded = self._getWorkflowSets()
+                print(
+                    "\n".join(
+                        [
+                            "loadWorkflows [set1 [...]]\n",
+                            "Load the workflow set not loaded already.\n",
+                            f"Loaded: {', '.join(loaded)}\n",
+                            f"Unloaded: {', '.join(unloaded)}"
+                        ]
+                    )
+                )
+
             def help_predefined(self):
                 print(
                     "\n".join(
                         [
                             "predefined [predef1 [...]]\n",
                             "Run w/o argument, it will print the list of known predefined workflows.",
-                            "Run with space-separated predefined workflows, it will print the workflow-ids registered to them",
+                            "Run with space-separated predefined workflows, it will print the workflow-ids registered to them\n",
+                            f"Available sets: {', '.join(predefinedSet.keys())}"
                         ]
                     )
                 )
@@ -641,7 +548,7 @@ if __name__ == '__main__':
                 if text and len(text) > 0:
                     return [t for t in predefinedSet.keys() if t.startswith(text)]
                 else:
-                    return predefinedSet.keys()
+                    return list(predefinedSet.keys())
 
             def do_predefined(self, arg):
                 """Print the list of predefined workflows"""
@@ -650,7 +557,7 @@ if __name__ == '__main__':
                     for w in arg.split():
                         if w in predefinedSet.keys():
                             print("Predefined Set: %s" % w)
-                            print(predefinedSet[w])
+                            print(predefinedSet[w]) # slow first time
                         else:
                             print("Unknown Set: %s" % w)
                 else:
@@ -677,14 +584,17 @@ if __name__ == '__main__':
                 if text and len(text) > 0:
                     return [t for t in self.matrices_.keys() if t.startswith(text)]
                 else:
-                    return self.matrices_.keys()
+                    return list(self.matrices_.keys())
 
             def do_showWorkflow(self, arg):
                 if arg == "":
+                    _, unloaded = self._getWorkflowSets()
                     print("Available workflows:")
                     for k in self.matrices_.keys():
                         print(Fore.RED + Style.BRIGHT + k)
                     print(Style.RESET_ALL)
+                    if unloaded:
+                        print(f"You can load these with loadWorkflow: {', '.join(unloaded)}")
                 else:
                     selected = arg.split()
                     for k in selected:
@@ -728,20 +638,27 @@ if __name__ == '__main__':
                     + "Workflow class: {}".format(workflow_class)
                 )
                 print(
-                    Fore.GREEN + Style.BRIGHT + "Workflow ID:    {}".format(workflow_id)
+                    Fore.GREEN + Style.BRIGHT + f"Workflow ID:    {workflow_id}"
                 )
                 print(
                     Fore.GREEN
                     + Style.BRIGHT
-                    + "Additional runTheMatrix options: {}".format(passed_down_args)
+                    + f"Additional runTheMatrix options: {passed_down_args}"
                 )
                 print(Style.RESET_ALL)
                 if workflow_class not in self.matrices_.keys():
-                    print(
-                        Fore.RED
-                        + Style.BRIGHT
-                        + "Unknown workflow selected: {}".format(workflow_class)
-                    )
+                    if workflow_class in MatrixReader.ALLOWED_SETS:
+                        print(
+                            Fore.RED
+                            + Style.BRIGHT
+                            + f"Workflow {workflow_class!r} not loaded; use loadWorkflow"
+                        )
+                    else:
+                        print(
+                            Fore.RED
+                            + Style.BRIGHT
+                            + f"Unknown workflow selected: {workflow_class}"
+                        )
                     print("Available workflows:")
                     for k in self.matrices_.keys():
                         print(Fore.RED + Style.BRIGHT + k)
@@ -752,7 +669,7 @@ if __name__ == '__main__':
                     print(
                         Fore.RED
                         + Style.BRIGHT
-                        + "Unknown workflow {}".format(workflow_id)
+                        + f"Unknown workflow {workflow_id}"
                     )
                     print(Fore.GREEN + Style.BRIGHT)
                     print(wflnums)
@@ -764,7 +681,7 @@ if __name__ == '__main__':
                         print(
                             Fore.RED
                             + Style.BRIGHT
-                            + "Workflow {} already running!".format(workflow_id)
+                            + f"Workflow {workflow_id} already running!"
                         )
                         print(Style.RESET_ALL)
                         return
@@ -788,7 +705,7 @@ if __name__ == '__main__':
                 if text and len(text) > 0:
                     return [t for t in self.matrices_.keys() if t.startswith(text)]
                 else:
-                    return self.matrices_.keys()
+                    return list(self.matrices_.keys())
 
             def help_runWorkflow(self):
                 print(
@@ -914,7 +831,7 @@ if __name__ == '__main__':
                 if text and len(text) > 0:
                     return [t for t in self.matrices_.keys() if t.startswith(text)]
                 else:
-                    return self.matrices_.keys()
+                    return list(self.matrices_.keys())
 
             def help_searchInWorkflow(self):
                 print(
@@ -931,7 +848,7 @@ if __name__ == '__main__':
                 if text and len(text) > 0:
                     return [t for t in self.matrices_.keys() if t.startswith(text)]
                 else:
-                    return self.matrices_.keys()
+                    return list(self.matrices_.keys())
 
             def do_searchInWorkflow(self, arg):
                 args = arg.split()
@@ -1040,6 +957,5 @@ if __name__ == '__main__':
         ret = showRaw(opt)
     else:
         ret = runSelected(opt)
-
 
     sys.exit(ret)
